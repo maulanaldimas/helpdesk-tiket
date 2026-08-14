@@ -129,6 +129,16 @@ docker compose down             # hentikan (data tetap tersimpan)
 docker compose down -v          # hentikan + hapus volume/data
 ```
 
+## CI/CD (GitHub Actions)
+
+Workflow `.github/workflows/ci.yml` berjalan otomatis pada setiap `push`/PR:
+
+1. **Test (Django)** — install dependensi, `manage.py check`, dan seluruh tes otomatis (30).
+2. **Build & Push image** (hanya saat push ke `main` atau tag `v*`) — build image Docker lalu push ke **GitHub Container Registry** (`ghcr.io/<owner>/<repo>`:latest / :sha / :tag).
+
+Status terbaru bisa dilihat di tab **Actions** repo. Untuk deploy ke server, tinggal
+`docker compose pull && docker compose up -d` dengan image dari registry.
+
 ## Akun Demo
 
 | Username    | Password     | Role      |
