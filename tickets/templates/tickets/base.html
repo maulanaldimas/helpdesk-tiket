@@ -74,6 +74,24 @@
 
         details.dropdown > summary { list-style: none; }
         details.dropdown > summary::-webkit-details-marker { display: none; }
+
+        .prose-helpdesk h1 { @apply text-2xl font-display font-bold text-slate-900 mt-8 mb-3; }
+        .prose-helpdesk h2 { @apply text-xl font-display font-bold text-slate-900 mt-6 mb-2; }
+        .prose-helpdesk h3 { @apply text-lg font-display font-bold text-slate-900 mt-5 mb-2; }
+        .prose-helpdesk h4 { @apply font-bold text-slate-900 mt-4 mb-1.5; }
+        .prose-helpdesk p { @apply my-3; }
+        .prose-helpdesk ul { @apply list-disc ml-5 my-3 space-y-1; }
+        .prose-helpdesk ol { @apply list-decimal ml-5 my-3 space-y-1; }
+        .prose-helpdesk a { @apply text-indigo-600 hover:text-indigo-500 underline; }
+        .prose-helpdesk code { @apply font-mono text-[13px] bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5; }
+        .prose-helpdesk pre { @apply bg-slate-900 text-slate-100 rounded-lg p-4 my-3 overflow-x-auto text-[13px] leading-relaxed; }
+        .prose-helpdesk pre code { @apply bg-transparent border-0 p-0 text-inherit; }
+        .prose-helpdesk blockquote { @apply border-l-4 border-indigo-200 pl-4 my-3 text-slate-500 italic; }
+        .prose-helpdesk table { @apply w-full text-sm my-3 border border-slate-200; }
+        .prose-helpdesk th { @apply bg-slate-50 text-left px-3 py-2 border border-slate-200 font-semibold; }
+        .prose-helpdesk td { @apply px-3 py-2 border border-slate-200 align-top; }
+        .prose-helpdesk hr { @apply my-6 border-slate-200; }
+        .prose-helpdesk img { @apply rounded-lg my-3 max-w-full; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen flex flex-col">

@@ -404,3 +404,56 @@ class RegistrationTests(TestCase):
             # POST juga tidak membuat akun
             self.register()
             self.assertFalse(User.objects.filter(username='budi').exists())
+
+
+class MarkdownTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Software')
+        self.admin = make_user('admin', 'admin')
+        self.staff = make_user('staff', 'staff', self.company)
+
+    def test_content_html_renders_markdown(self):
+        article = Article.objects.create(
+            title='Cara Reset',
+            content='# Judul\n\nTeks **tebal** dan `kode`.\n\n- item a\n- item b',
+            author=self.admin,
+        )
+        html = article.content_html()
+        self.assertIn('<h1>', html)
+        self.assertIn('<strong>tebal</strong>', html)
+        self.assertIn('<code>kode</code>', html)
+        self.assertIn('<ul>', html)
+
+    def test_content_html_escapes_script(self):
+        article = Article.objects.create(
+            title='X', content='<script>alert(1)</script><b>ok</b>', author=self.admin,
+        )
+        html = article.content_html()
+        self.assertNotIn('<script>alert(1)</script>', html)
+        self.assertIn('<b>ok</b>', html)
+
+    def test_table_and_fenced_code(self):
+        article = Article.objects.create(
+            title='X',
+            content='| a | b |\n|---|---|\n| 1 | 2 |\n\n```python\nprint(1)\n```',
+            author=self.admin,
+        )
+        html = article.content_html()
+        self.assertIn('<table>', html)
+        self.assertIn('<pre>', html)
+
+    def test_preview_endpoint_renders(self):
+        self.client.login(username='admin', password='pass12345')
+        response = self.client.post(reverse('article_preview'), {'content': '**halo**'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('<strong>halo</strong>', response.content.decode())
+
+    def test_preview_only_post(self):
+        self.client.login(username='admin', password='pass12345')
+        self.assertEqual(self.client.get(reverse('article_preview')).status_code, 405)
+
+    def test_preview_requires_admin(self):
+        self.client.login(username='staff', password='pass12345')
+        response = self.client.post(reverse('article_preview'), {'content': '# Hai'})
+        self.assertEqual(response.status_code, 302)

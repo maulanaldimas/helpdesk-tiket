@@ -21,6 +21,7 @@ from django.db.models import Avg, Count, ExpressionWrapper, DurationField, F, Q
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .forms import (
     ArticleForm,
@@ -763,6 +764,16 @@ def article_detail(request, pk):
         'article': article,
         'related': related,
     })
+
+
+@login_required
+@require_POST
+def article_preview(request):
+    """Render Markdown ke HTML untuk pratinjau di editor artikel."""
+    if not admin_required(request.user):
+        return redirect('dashboard')
+    html = Article(content=request.POST.get('content', '')).content_html()
+    return HttpResponse(html)
 
 
 @login_required

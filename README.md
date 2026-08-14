@@ -44,6 +44,8 @@ Sistem tiket IT support (helpdesk) berbasis Django yang lengkap untuk perusahaan
 
 ### Knowledge Base / FAQ
 - Artikel solusi yang bisa dicari & difilter per kategori
+- Ditulis dengan **Markdown** (heading, bold, kode, tabel, kutipan) + pratinjau langsung
+- Konten disanitasi otomatis demi keamanan
 - Hanya artikel terbit yang tampil ke pengguna
 - CRUD artikel khusus admin
 
@@ -57,7 +59,7 @@ Sistem tiket IT support (helpdesk) berbasis Django yang lengkap untuk perusahaan
 - Static files via WhiteNoise (siap `collectstatic`)
 - **Docker & docker-compose** (web + PostgreSQL)
 - Lampiran tiket dilindungi akses (hanya user terkait)
-- 39 tes otomatis
+- 45 tes otomatis
 
 ---
 
@@ -184,7 +186,7 @@ helpdesk-tiket/
 │   ├── views.py         # Semua view (tiket, laporan, user, KB, dashboard)
 │   ├── forms.py
 │   ├── urls.py
-│   ├── tests.py         # 39 tes otomatis
+│   ├── tests.py         # 45 tes otomatis
 │   └── templates/tickets/
 ├── Dockerfile           # Image aplikasi (Python 3.12 + gunicorn)
 ├── docker-compose.yml   # Orchestrasi web + PostgreSQL
@@ -198,7 +200,7 @@ helpdesk-tiket/
 ## Roadmap
 
 - [x] Registrasi mandiri dengan persetujuan admin
-- [ ] Knowledge base dengan markup (markdown)
+- [x] Knowledge base dengan markup (markdown)
 - [ ] Webhook ke Slack/Teams
 - [ ] Autentikasi LDAP/SSO
 - [ ] Multi-tenancy penuh dengan database terpisah

@@ -36,6 +36,7 @@ urlpatterns = [
 
     # Knowledge base / FAQ
     path('kb/', views.article_list, name='article_list'),
+    path('kb/preview/', views.article_preview, name='article_preview'),
     path('kb/<int:pk>/', views.article_detail, name='article_detail'),
     path('kb/new/', views.article_create, name='article_create'),
     path('kb/<int:pk>/edit/', views.article_edit, name='article_edit'),

@@ -29,7 +29,7 @@
         {% endif %}
     </div>
 
-    <div class="prose-sm mt-5 text-slate-700 leading-relaxed whitespace-pre-line">{{ article.content }}</div>
+    <div class="prose-helpdesk mt-5 text-slate-700 leading-relaxed">{{ article.content_html|safe }}</div>
 </article>
 
 {% if related %}

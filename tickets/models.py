@@ -1,5 +1,8 @@
 import os
 
+import bleach
+import markdown
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -200,9 +203,19 @@ class Activity(models.Model):
 
 class Article(models.Model):
     """Artikel knowledge base / FAQ."""
+
+    # Tag & atribut HTML yang diizinkan setelah render markdown
+    ALLOWED_TAGS = [
+        'a', 'abbr', 'acronym', 'b', 'blockquote', 'br', 'code', 'div',
+        'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'li',
+        'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td', 'th',
+        'thead', 'tr', 'ul',
+    ]
+    ALLOWED_ATTRS = {'a': ['href', 'title'], 'img': ['src', 'alt', 'title']}
+
     title = models.CharField(max_length=200)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='articles')
-    content = models.TextField()
+    content = models.TextField(help_text='Ditulis dengan Markdown.')
     is_published = models.BooleanField(default=True)
     author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='articles')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -210,6 +223,11 @@ class Article(models.Model):
 
     class Meta:
         ordering = ['-updated_at']
+
+    def content_html(self):
+        """Render isi artikel dari Markdown menjadi HTML yang sudah disanitasi."""
+        raw = markdown.markdown(self.content, extensions=['extra', 'fenced_code', 'tables', 'sane_lists'])
+        return bleach.clean(raw, tags=self.ALLOWED_TAGS, attributes=self.ALLOWED_ATTRS)
 
     def __str__(self):
         return self.title

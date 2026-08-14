@@ -6,10 +6,10 @@
 <div class="max-w-2xl mx-auto">
     <div class="mb-6">
         <h1 class="page-title">{{ title }}</h1>
-        <p class="page-sub">Tulis solusi agar dapat membantu pengguna lain.</p>
+        <p class="page-sub">Tulis solusi agar dapat membantu pengguna lain. Didukung Markdown.</p>
     </div>
 
-    <form method="post" class="card p-6 space-y-4">
+    <form method="post" class="card p-6 space-y-4" id="article-form">
         {% csrf_token %}
         {% for field in form %}
             <div>
@@ -21,6 +21,21 @@
                         {{ field }}
                         <span>Publikasikan</span>
                     </label>
+                {% elif field.name == 'content' %}
+                    <div class="rounded-lg border border-slate-200 overflow-hidden">
+                        <div class="flex items-center justify-between bg-slate-50 border-b border-slate-200 px-3 py-2">
+                            <div class="flex gap-1 text-sm font-medium">
+                                <button type="button" id="tab-write" class="px-3 py-1 rounded-md bg-white border border-slate-200 text-slate-900">Tulis</button>
+                                <button type="button" id="tab-preview" class="px-3 py-1 rounded-md text-slate-500 hover:text-slate-900">Pratinjau</button>
+                            </div>
+                            <span class="text-[11px] text-slate-400 hidden sm:inline">
+                                **tebal** · *miring* · `kode` · # judul · - list · [link](url)
+                            </span>
+                        </div>
+                        <div id="write-pane">{{ field }}</div>
+                        <div id="preview-pane" class="prose-helpdesk px-4 py-3 bg-white text-sm text-slate-700 leading-relaxed hidden"></div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Pratinjau dirender Markdown secara otomatis. Konten disanitasi demi keamanan.</p>
                 {% else %}
                     {{ field }}
                 {% endif %}
@@ -38,4 +53,50 @@
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    var writePane = document.getElementById('write-pane');
+    var previewPane = document.getElementById('preview-pane');
+    var tabWrite = document.getElementById('tab-write');
+    var tabPreview = document.getElementById('tab-preview');
+    var textarea = document.getElementById('id_content');
+
+    function showWrite() {
+        writePane.classList.remove('hidden');
+        previewPane.classList.add('hidden');
+        tabWrite.className = 'px-3 py-1 rounded-md bg-white border border-slate-200 text-slate-900';
+        tabPreview.className = 'px-3 py-1 rounded-md text-slate-500 hover:text-slate-900';
+    }
+
+    function showPreview() {
+        writePane.classList.add('hidden');
+        previewPane.classList.remove('hidden');
+        tabWrite.className = 'px-3 py-1 rounded-md text-slate-500 hover:text-slate-900';
+        tabPreview.className = 'px-3 py-1 rounded-md bg-white border border-slate-200 text-slate-900';
+    }
+
+    function getCookie(name) {
+        var parts = ('; ' + document.cookie).split('; ' + name + '=');
+        return parts.length === 2 ? parts.pop().split(';').shift() : '';
+    }
+
+    tabPreview.addEventListener('click', function () {
+        showPreview();
+        previewPane.innerHTML = '<p class="text-slate-400">Merender Markdown...</p>';
+        fetch('{% url "article_preview" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'content=' + encodeURIComponent(textarea.value)
+        }).then(function (r) { return r.text(); })
+          .then(function (html) { previewPane.innerHTML = html; })
+          .catch(function () { previewPane.innerHTML = '<p class="text-rose-500">Gagal merender pratinjau.</p>'; });
+    });
+
+    tabWrite.addEventListener('click', showWrite);
+})();
+</script>
 {% endblock %}
