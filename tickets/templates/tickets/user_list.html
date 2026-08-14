@@ -39,8 +39,19 @@
         <tbody class="divide-y divide-slate-100">
             {% for u in users %}
                 <tr class="hover:bg-slate-50">
-                    <td class="px-4 py-2.5 font-mono text-slate-700">{{ u.username }}{% if u == request.user %}<span class="text-xs text-indigo-500 ml-1">(anda)</span>{% endif %}</td>
-                    <td class="px-4 py-2.5 text-slate-600">{{ u.get_full_name|default:'-' }}</td>
+                    <td class="px-4 py-2.5">
+                        <div class="flex items-center gap-2">
+                            {% if u.profile.avatar %}
+                                <img src="{{ u.profile.avatar.url }}" alt="" class="w-7 h-7 rounded-full object-cover">
+                            {% endif %}
+                            <span class="font-mono text-slate-700">{{ u.username }}</span>
+                            {% if u == request.user %}<span class="text-xs text-indigo-500">(anda)</span>{% endif %}
+                        </div>
+                    </td>
+                    <td class="px-4 py-2.5 text-slate-600">
+                        {{ u.get_full_name|default:'-' }}
+                        {% if u.profile.job_title %}<span class="text-xs text-slate-400 block">{{ u.profile.job_title }}</span>{% endif %}
+                    </td>
                     <td class="px-4 py-2.5 text-slate-500">{{ u.email|default:'-' }}</td>
                     <td class="px-4 py-2.5">
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium

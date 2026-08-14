@@ -1,0 +1,35 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Pengaturan Aplikasi{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="page-title">Pengaturan Aplikasi</h1>
+        <p class="page-sub">Ubah nama, tagline, logo, dan warna aksen tanpa menyentuh kode.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="card p-6 space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+            <div>
+                <label class="label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <p class="text-xs text-slate-400 mt-1">{{ field.help_text }}</p>
+                {% endif %}
+                {% if field.errors %}
+                    <p class="text-rose-600 text-xs mt-1">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+        <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs text-slate-500">
+            Pratinjau nama aplikasi: <span class="font-medium text-slate-700">{{ form.site_name.value|default:site_name }}</span>
+        </div>
+        <div class="flex gap-2 pt-2">
+            <button type="submit" class="btn btn-primary">Simpan</button>
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary">Batal</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

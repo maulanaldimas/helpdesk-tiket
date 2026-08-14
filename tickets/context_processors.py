@@ -1,10 +1,22 @@
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Count
+from django.templatetags.static import static
+
+from .models import AppSettings
 
 
 def site_settings(request):
-    return {'registration_open': settings.REGISTRATION_OPEN}
+    cfg = AppSettings.load()
+    logo_url = cfg.logo.url if cfg.logo else static('tickets/img/logo.png')
+    return {
+        'registration_open': settings.REGISTRATION_OPEN,
+        'site_name': cfg.site_name,
+        'site_tagline': cfg.tagline,
+        'site_footer': cfg.footer_text,
+        'site_logo_url': logo_url,
+        'primary_color': cfg.primary_color,
+    }
 
 
 def unread_notifications(request):

@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Ticket, Comment, Company, Category, Profile, Article
+from .models import Ticket, Comment, Company, Category, Profile, Article, AppSettings
 
 INPUT_CLASS = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent'
 SELECT_CLASS = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500'
@@ -194,6 +194,57 @@ class RegistrationForm(forms.Form):
         if p1 and p2 and p1 != p2:
             raise forms.ValidationError('Password tidak cocok.')
         return p2
+
+
+class ProfileForm(forms.ModelForm):
+    first_name = forms.CharField(label='Nama', max_length=150, required=False, widget=forms.TextInput(attrs={'class': INPUT_CLASS}))
+    email = forms.EmailField(label='Email', required=False, widget=forms.EmailInput(attrs={'class': INPUT_CLASS}))
+
+    class Meta:
+        model = Profile
+        fields = ['avatar', 'phone', 'job_title']
+        widgets = {
+            'phone': forms.TextInput(attrs={'class': INPUT_CLASS}),
+            'job_title': forms.TextInput(attrs={'class': INPUT_CLASS}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields['first_name'].initial = self.instance.user.first_name
+            self.fields['email'].initial = self.instance.user.email
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        user = profile.user
+        user.first_name = self.cleaned_data['first_name']
+        user.email = self.cleaned_data['email']
+        if commit:
+            user.save()
+            profile.save()
+        return profile
+
+
+class AppSettingsForm(forms.ModelForm):
+    class Meta:
+        model = AppSettings
+        fields = ['site_name', 'tagline', 'footer_text', 'logo', 'primary_color']
+        widgets = {
+            'site_name': forms.TextInput(attrs={'class': INPUT_CLASS}),
+            'tagline': forms.TextInput(attrs={'class': INPUT_CLASS}),
+            'footer_text': forms.TextInput(attrs={'class': INPUT_CLASS}),
+            'primary_color': forms.TextInput(attrs={'class': INPUT_CLASS, 'type': 'color'}),
+        }
+
+    def clean_primary_color(self):
+        value = self.cleaned_data['primary_color'].strip()
+        if not value.startswith('#') or len(value) != 7:
+            raise forms.ValidationError('Format harus hex, misal #4f46e5.')
+        try:
+            int(value[1:], 16)
+        except ValueError:
+            raise forms.ValidationError('Kode warna tidak valid.')
+        return value
 
 
 class ArticleForm(forms.ModelForm):

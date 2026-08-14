@@ -40,10 +40,18 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='requester')
+    phone = models.CharField(max_length=30, blank=True)
+    job_title = models.CharField(max_length=100, blank=True)
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     pending_approval = models.BooleanField(
         default=False,
         help_text='Menunggu persetujuan admin (dari registrasi mandiri).',
     )
+
+    def avatar_url(self):
+        if self.avatar:
+            return self.avatar.url
+        return None
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"
@@ -77,6 +85,8 @@ class Ticket(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     closed_at = models.DateTimeField(null=True, blank=True)
+    sla_warning_sent = models.BooleanField(default=False, help_text='Notifikasi mendekati SLA sudah dikirim.')
+    sla_overdue_sent = models.BooleanField(default=False, help_text='Notifikasi terlampaui SLA sudah dikirim.')
 
     def __str__(self):
         return f"#{self.id} - {self.title}"
@@ -199,6 +209,28 @@ class Activity(models.Model):
 
     def __str__(self):
         return f"{self.get_action_display()} on Ticket #{self.ticket.id}"
+
+
+class AppSettings(models.Model):
+    """Pengaturan branding aplikasi (singleton, satu baris)."""
+
+    site_name = models.CharField(max_length=100, default='Sokkafiber Helpdesk')
+    tagline = models.CharField(max_length=200, blank=True, default='Internal IT Support')
+    footer_text = models.CharField(max_length=200, blank=True, default='Sokkafiber Helpdesk · Internal IT Support')
+    logo = models.ImageField(upload_to='brand/', blank=True, null=True, help_text='Kosongkan untuk memakai logo bawaan.')
+    primary_color = models.CharField(max_length=7, default='#4f46e5', help_text='Warna aksen, format hex (mis. #4f46e5).')
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return 'Pengaturan aplikasi'
 
 
 class Article(models.Model):

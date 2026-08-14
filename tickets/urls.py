@@ -5,8 +5,11 @@ urlpatterns = [
     path('', views.ticket_list, name='ticket_list'),
     path('register/', views.register, name='register'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('dashboard/saya/', views.my_dashboard, name='my_dashboard'),
     path('ticket/<int:pk>/', views.ticket_detail, name='ticket_detail'),
     path('ticket/new/', views.ticket_create, name='ticket_create'),
+    path('tickets/import/', views.import_tickets, name='import_tickets'),
+    path('tickets/import/template/', views.import_template, name='import_template'),
     path('notifications/', views.notification_list, name='notification_list'),
 
     # Lampiran tiket (hanya untuk user dengan akses tiket)
@@ -15,6 +18,7 @@ urlpatterns = [
     # Laporan
     path('report/', views.report_page, name='report_page'),
     path('report/export/excel/', views.report_export_excel, name='report_export_excel'),
+    path('report/export/csv/', views.report_export_csv, name='report_export_csv'),
     path('report/export/pdf/', views.report_export_pdf, name='report_export_pdf'),
 
     # Master
@@ -32,7 +36,9 @@ urlpatterns = [
     path('users/<int:pk>/edit/', views.user_edit, name='user_edit'),
     path('users/<int:pk>/delete/', views.user_delete, name='user_delete'),
     path('users/<int:pk>/reset-password/', views.reset_password, name='reset_password'),
+    path('account/', views.profile_page, name='profile'),
     path('account/password/', views.change_password, name='change_password'),
+    path('settings/', views.settings_page, name='settings_page'),
 
     # Knowledge base / FAQ
     path('kb/', views.article_list, name='article_list'),

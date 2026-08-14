@@ -201,6 +201,11 @@ helpdesk-tiket/
 
 - [x] Registrasi mandiri dengan persetujuan admin
 - [x] Knowledge base dengan markup (markdown)
+- [x] Pengaturan aplikasi melalui UI (nama, tagline, logo, warna, footer)
+- [x] Pengingat & eskalasi SLA otomatis (command `sla_check`)
+- [x] Halaman profil user dengan foto, telepon, dan jabatan
+- [x] Dashboard ringkasan per-staff ("Ringkasan Saya")
+- [x] Import tiket massal (CSV) & export laporan CSV
 - [ ] Webhook ke Slack/Teams
 - [ ] Autentikasi LDAP/SSO
 - [ ] Multi-tenancy penuh dengan database terpisah

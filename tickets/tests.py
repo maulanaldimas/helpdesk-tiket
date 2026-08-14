@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Activity, Article, Category, Company, Profile, Ticket
+from .models import Activity, AppSettings, Article, Category, Company, Profile, Ticket
 
 
 def make_user(username, role, company=None, password='pass12345'):
@@ -457,3 +457,264 @@ class MarkdownTests(TestCase):
         self.client.login(username='staff', password='pass12345')
         response = self.client.post(reverse('article_preview'), {'content': '# Hai'})
         self.assertEqual(response.status_code, 302)
+
+
+class SettingsTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.admin = make_user('admin', 'admin')
+        self.staff = make_user('staff', 'staff', self.company)
+
+    def test_settings_page_admin_only(self):
+        self.client.login(username='staff', password='pass12345')
+        self.assertEqual(self.client.get(reverse('settings_page')).status_code, 302)
+        self.client.login(username='admin', password='pass12345')
+        self.assertEqual(self.client.get(reverse('settings_page')).status_code, 200)
+
+    def test_update_settings(self):
+        self.client.login(username='admin', password='pass12345')
+        response = self.client.post(reverse('settings_page'), {
+            'site_name': 'Helpdesk Baru',
+            'tagline': 'Support 24/7',
+            'footer_text': 'Copyright 2026',
+            'primary_color': '#7c3aed',
+        })
+        self.assertEqual(response.status_code, 302)
+        cfg = AppSettings.objects.get(pk=1)
+        self.assertEqual(cfg.site_name, 'Helpdesk Baru')
+        self.assertEqual(cfg.primary_color, '#7c3aed')
+
+    def test_upload_logo(self):
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+        self.client.login(username='admin', password='pass12345')
+        buf = io.BytesIO()
+        Image.new('RGBA', (60, 60), (79, 70, 229, 255)).save(buf, format='PNG')
+        img = SimpleUploadedFile('brand.png', buf.getvalue(), content_type='image/png')
+        self.client.post(reverse('settings_page'), {
+            'site_name': 'Helpdesk Baru',
+            'tagline': '',
+            'footer_text': '',
+            'primary_color': '#4f46e5',
+            'logo': img,
+        })
+        cfg = AppSettings.objects.get(pk=1)
+        self.assertIn('brand', cfg.logo.name)
+
+    def test_invalid_color_rejected(self):
+        self.client.login(username='admin', password='pass12345')
+        response = self.client.post(reverse('settings_page'), {
+            'site_name': 'X',
+            'tagline': '',
+            'footer_text': '',
+            'primary_color': 'hijau',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'hex')
+
+    def test_singleton(self):
+        AppSettings.load()
+        AppSettings.load()
+        self.assertEqual(AppSettings.objects.count(), 1)
+
+    def test_login_page_exposes_branding(self):
+        response = self.client.get(reverse('login'))
+        content = response.content.decode()
+        self.assertIn('Sokkafiber Helpdesk', content)
+        self.assertIn('/static/tickets/img/logo.png', content)
+
+
+class SlaCheckTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Network')
+        self.staff = make_user('staff', 'staff', self.company)
+        self.requester = make_user('req', 'requester', self.company)
+
+    def call(self):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('sla_check', stdout=out)
+        return out.getvalue()
+
+    def test_overdue_escalation(self):
+        ticket = make_ticket(self.requester, self.company, self.category)
+        ticket.sla_deadline = timezone.now() - timedelta(hours=2)
+        ticket.assigned_to = self.staff
+        ticket.save()
+        self.call()
+        ticket.refresh_from_db()
+        self.assertTrue(ticket.sla_overdue_sent)
+        self.assertTrue(self.staff.notifications.filter(ticket=ticket, message__icontains='TERLAMPAUI').exists())
+        # tidak duplikat saat dijalankan ulang
+        self.call()
+        self.assertEqual(self.staff.notifications.filter(ticket=ticket, message__icontains='TERLAMPAUI').count(), 1)
+
+    def test_warning_before_deadline(self):
+        ticket = make_ticket(self.requester, self.company, self.category, priority='urgent')
+        ticket.sla_deadline = timezone.now() + timedelta(minutes=30)
+        ticket.assigned_to = self.staff
+        ticket.save()
+        self.call()
+        ticket.refresh_from_db()
+        self.assertTrue(ticket.sla_warning_sent)
+        self.assertFalse(ticket.sla_overdue_sent)
+        self.assertTrue(self.staff.notifications.filter(ticket=ticket, message__icontains='mendekati').exists())
+
+    def test_no_notify_within_sla(self):
+        ticket = make_ticket(self.requester, self.company, self.category, priority='low')
+        ticket.sla_deadline = timezone.now() + timedelta(hours=80)
+        ticket.save()
+        self.call()
+        ticket.refresh_from_db()
+        self.assertFalse(ticket.sla_warning_sent)
+        self.assertFalse(ticket.sla_overdue_sent)
+
+    def test_closed_ticket_not_escalated(self):
+        ticket = make_ticket(self.requester, self.company, self.category, status='resolved')
+        ticket.sla_deadline = timezone.now() - timedelta(hours=2)
+        ticket.save()
+        self.call()
+        ticket.refresh_from_db()
+        self.assertFalse(ticket.sla_overdue_sent)
+
+
+class ProfileTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.user = make_user('req', 'requester', self.company)
+
+    def test_profile_page_login_required(self):
+        self.assertEqual(self.client.get(reverse('profile')).status_code, 302)
+
+    def test_profile_page_renders(self):
+        self.client.login(username='req', password='pass12345')
+        self.assertEqual(self.client.get(reverse('profile')).status_code, 200)
+
+    def test_update_profile(self):
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+        self.client.login(username='req', password='pass12345')
+        buf = io.BytesIO()
+        Image.new('RGB', (40, 40), (200, 50, 50)).save(buf, format='PNG')
+        avatar = SimpleUploadedFile('foto.png', buf.getvalue(), content_type='image/png')
+        response = self.client.post(reverse('profile'), {
+            'first_name': 'Rina',
+            'email': 'rina@test.com',
+            'phone': '08123456789',
+            'job_title': 'Supervisor',
+            'avatar': avatar,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Rina')
+        self.assertEqual(self.user.email, 'rina@test.com')
+        self.assertEqual(self.user.profile.phone, '08123456789')
+        self.assertEqual(self.user.profile.job_title, 'Supervisor')
+        self.assertIn('foto', self.user.profile.avatar.name)
+
+
+class MyDashboardTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Software')
+        self.staff = make_user('staff', 'staff', self.company)
+        self.requester = make_user('req', 'requester', self.company)
+
+    def test_login_required(self):
+        self.assertEqual(self.client.get(reverse('my_dashboard')).status_code, 302)
+
+    def test_staff_sees_assigned_only(self):
+        own = make_ticket(self.requester, self.company, self.category)
+        own.assigned_to = self.staff
+        own.save()
+        make_ticket(self.requester, self.company, self.category)
+        self.client.login(username='staff', password='pass12345')
+        response = self.client.get(reverse('my_dashboard'))
+        self.assertEqual(response.context['total'], 1)
+        self.assertEqual(list(response.context['recent']), [own])
+
+    def test_requester_sees_own_created_only(self):
+        make_ticket(self.requester, self.company, self.category)
+        make_ticket(make_user('req2', 'requester', self.company), self.company, self.category)
+        self.client.login(username='req', password='pass12345')
+        response = self.client.get(reverse('my_dashboard'))
+        self.assertEqual(response.context['total'], 1)
+
+    def test_kpi_counts(self):
+        t = make_ticket(self.requester, self.company, self.category)
+        t.assigned_to = self.staff
+        t.save()
+        t2 = make_ticket(self.requester, self.company, self.category)
+        t2.assigned_to = self.staff
+        t2.status = 'resolved'
+        t2.save()
+        self.client.login(username='staff', password='pass12345')
+        response = self.client.get(reverse('my_dashboard'))
+        self.assertEqual(response.context['total'], 2)
+        self.assertEqual(response.context['open_count'], 1)
+        self.assertEqual(response.context['resolved_count'], 1)
+
+
+class ImportExportTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Software')
+        self.admin = make_user('admin', 'admin', self.company)
+        self.staff = make_user('staff', 'staff', self.company)
+
+    def test_export_csv(self):
+        make_ticket(self.admin, self.company, self.category)
+        self.client.login(username='admin', password='pass12345')
+        response = self.client.get(reverse('report_export_csv'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('text/csv', response['Content-Type'])
+        self.assertIn('ID', response.content.decode('utf-8-sig'))
+        self.assertIn('Software', response.content.decode('utf-8-sig'))
+
+    def test_export_csv_requires_login(self):
+        self.assertEqual(self.client.get(reverse('report_export_csv')).status_code, 302)
+
+    def test_template_download(self):
+        self.client.login(username='admin', password='pass12345')
+        response = self.client.get(reverse('import_template'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('title', response.content.decode('utf-8-sig'))
+
+    def test_import_admin_only(self):
+        self.client.login(username='staff', password='pass12345')
+        response = self.client.get(reverse('import_tickets'))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('dashboard'))
+
+    def test_import_creates_tickets(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_data = ('title,description,company,category,priority,status\n'
+                    'Laptop rusak,layar gelap,PT Baru,Hardware,high,open\n'
+                    'Printer error,,PT Uji,Software,low,resolved\n').encode('utf-8-sig')
+        self.client.login(username='admin', password='pass12345')
+        response = self.client.post(reverse('import_tickets'), {
+            'file': SimpleUploadedFile('data.csv', csv_data, content_type='text/csv'),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('ticket_list'))
+        self.assertEqual(Ticket.objects.count(), 2)
+        self.assertTrue(Company.objects.filter(name='PT Baru').exists())
+        self.assertTrue(Category.objects.filter(name='Hardware').exists())
+        t = Ticket.objects.get(title='Laptop rusak')
+        self.assertEqual(t.priority, 'high')
+        self.assertEqual(t.created_by, self.admin)
+
+    def test_import_skips_invalid_rows(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_data = ('title,description,company\n'
+                    ',tanpa judul,PT Uji\n'
+                    'Valid,ok,PT Uji\n').encode('utf-8')
+        self.client.login(username='admin', password='pass12345')
+        self.client.post(reverse('import_tickets'), {
+            'file': SimpleUploadedFile('data.csv', csv_data, content_type='text/csv'),
+        })
+        self.assertEqual(Ticket.objects.count(), 1)

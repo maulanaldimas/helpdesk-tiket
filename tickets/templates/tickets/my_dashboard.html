@@ -1,0 +1,49 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Ringkasan Saya{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="page-title">Ringkasan Saya</h1>
+        <p class="page-sub">{{ scope_label }}</p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Dashboard</a>
+</div>
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card p-4">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Total</p>
+        <p class="text-2xl font-display font-bold text-slate-900 mt-1">{{ total }}</p>
+    </div>
+    <div class="card p-4">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Belum Selesai</p>
+        <p class="text-2xl font-display font-bold text-sky-600 mt-1">{{ open_count }}</p>
+    </div>
+    <div class="card p-4">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Overdue</p>
+        <p class="text-2xl font-display font-bold text-rose-600 mt-1">{{ overdue_count }}</p>
+    </div>
+    <div class="card p-4">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Selesai</p>
+        <p class="text-2xl font-display font-bold text-emerald-600 mt-1">{{ resolved_count }}</p>
+    </div>
+</div>
+
+<div class="card overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-700">Terbaru</div>
+    <div class="divide-y divide-slate-100">
+        {% for t in recent %}
+            <a href="{% url 'ticket_detail' t.pk %}" class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 transition">
+                <div class="min-w-0">
+                    <p class="text-sm text-slate-800 truncate">#{{ t.id }} · {{ t.title }}</p>
+                    <p class="text-xs text-slate-400">{{ t.company.name }}{% if t.category %} · {{ t.category.name }}{% endif %}</p>
+                </div>
+                <span class="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium {{ t.status_badge_class }}">{{ t.get_status_display }}</span>
+            </a>
+        {% empty %}
+            <div class="p-10 text-center text-sm text-slate-400">Belum ada tiket.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

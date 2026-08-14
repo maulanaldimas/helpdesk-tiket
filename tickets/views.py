@@ -1,3 +1,5 @@
+import csv
+import io
 import logging
 from datetime import timedelta
 
@@ -24,16 +26,18 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import (
+    AppSettingsForm,
     ArticleForm,
     CategoryForm,
     CommentForm,
     CompanyForm,
+    ProfileForm,
     RegistrationForm,
     TicketForm,
     UserCreateForm,
     UserEditForm,
 )
-from .models import Activity, Article, Category, Company, Notification, Profile, Ticket, TicketAttachment
+from .models import Activity, AppSettings, Article, Category, Company, Notification, Profile, Ticket, TicketAttachment
 
 logger = logging.getLogger('tickets')
 
@@ -265,6 +269,110 @@ def ticket_create(request):
 
 
 @login_required
+def import_template(request):
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="template-import-tiket.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow(['title', 'description', 'company', 'category', 'priority', 'status'])
+    writer.writerow(['Laptop tidak menyala', 'Deskripsi masalah lengkap di sini...',
+                     'Sokka Tama Fiber', 'Hardware', 'high', 'open'])
+    writer.writerow(['Printer bermasalah', '', 'Sokka Tama Fiber', 'Hardware', 'medium', 'in_progress'])
+    return response
+
+
+@login_required
+def import_tickets(request):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        uploaded = request.FILES.get('file')
+        if not uploaded:
+            messages.error(request, 'Pilih file CSV terlebih dahulu.')
+            return redirect('import_tickets')
+        if uploaded.size > 2 * 1024 * 1024:
+            messages.error(request, 'File terlalu besar (maks 2 MB).')
+            return redirect('import_tickets')
+        try:
+            decoded = uploaded.read().decode('utf-8-sig')
+        except UnicodeDecodeError:
+            messages.error(request, 'File harus berformat CSV ber-encoding UTF-8.')
+            return redirect('import_tickets')
+
+        reader = csv.DictReader(io.StringIO(decoded))
+        valid_priorities = dict(Ticket.PRIORITY_CHOICES)
+        valid_statuses = dict(Ticket.STATUS_CHOICES)
+        created = 0
+        skipped = []
+
+        for idx, row in enumerate(reader, start=2):
+            title = (row.get('title') or '').strip()
+            company_name = (row.get('company') or '').strip()
+            if not title or not company_name:
+                skipped.append(f'baris {idx}: judul/company kosong')
+                continue
+            company, _ = Company.objects.get_or_create(name=company_name)
+            cat_name = (row.get('category') or '').strip()
+            category = None
+            if cat_name:
+                category = Category.objects.filter(name__iexact=cat_name).first()
+                if not category:
+                    category = Category.objects.create(name=cat_name)
+            priority = (row.get('priority') or 'medium').strip().lower()
+            priority = priority if priority in valid_priorities else 'medium'
+            status = (row.get('status') or 'open').strip().lower()
+            status = status if status in valid_statuses else 'open'
+            Ticket.objects.create(
+                title=title,
+                description=(row.get('description') or '').strip() or '-',
+                company=company,
+                category=category,
+                priority=priority,
+                status=status,
+                created_by=request.user,
+            )
+            created += 1
+
+        messages.success(request, f'{created} tiket berhasil diimpor.')
+        if skipped:
+            messages.error(request, 'Dilewati: ' + '; '.join(skipped[:10]))
+        return redirect('ticket_list')
+
+    return render(request, 'tickets/import_tickets.html')
+
+
+@login_required
+def my_dashboard(request):
+    """Ringkasan personal: staff melihat tiket yang ditugaskan, requester tiket buatannya."""
+    profile = request.user.profile
+    if profile.role == 'staff':
+        tickets = Ticket.objects.filter(assigned_to=request.user)
+        scope_label = 'tiket yang ditugaskan ke saya'
+    else:
+        tickets = Ticket.objects.filter(created_by=request.user)
+        scope_label = 'tiket yang saya buat'
+
+    total = tickets.count()
+    open_count = tickets.filter(status__in=['open', 'in_progress']).count()
+    overdue_count = tickets.exclude(status__in=['resolved', 'closed']).filter(
+        sla_deadline__lt=timezone.now()
+    ).count()
+    resolved_count = tickets.filter(status__in=['resolved', 'closed']).count()
+
+    recent = tickets.select_related('company', 'category').order_by('-updated_at')[:5]
+
+    return render(request, 'tickets/my_dashboard.html', {
+        'scope_label': scope_label,
+        'total': total,
+        'open_count': open_count,
+        'overdue_count': overdue_count,
+        'resolved_count': resolved_count,
+        'recent': recent,
+    })
+
+
+@login_required
 def notification_list(request):
     notifications = request.user.notifications.all().order_by('-created_at')
     notifications.filter(is_read=False).update(is_read=True)
@@ -348,6 +456,35 @@ def report_export_excel(request):
     filename = f"laporan-tiket-{timezone.now().strftime('%Y%m%d-%H%M')}.xlsx"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
+    return response
+
+
+@login_required
+def report_export_csv(request):
+    tickets = get_filtered_tickets(request)
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"laporan-tiket-{timezone.now().strftime('%Y%m%d-%H%M')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.write('\ufeff')  # BOM agar Excel membaca UTF-8 dengan benar
+
+    writer = csv.writer(response)
+    writer.writerow(['ID', 'Judul', 'Company', 'Kategori', 'Status', 'Prioritas',
+                     'Dibuat Oleh', 'Assigned To', 'Dibuat Pada', 'SLA Deadline', 'Overdue'])
+    for t in tickets:
+        writer.writerow([
+            t.id,
+            t.title,
+            t.company.name,
+            t.category.name if t.category else '-',
+            t.get_status_display(),
+            t.get_priority_display(),
+            t.created_by.username,
+            t.assigned_to.username if t.assigned_to else '-',
+            t.created_at.strftime('%Y-%m-%d %H:%M'),
+            t.sla_deadline.strftime('%Y-%m-%d %H:%M') if t.sla_deadline else '-',
+            'Ya' if t.is_overdue() else 'Tidak',
+        ])
     return response
 
 
@@ -706,6 +843,39 @@ def reset_password(request, pk):
             messages.success(request, f"Password untuk '{user.username}' berhasil direset.")
             return redirect('user_list')
     return render(request, 'tickets/reset_password.html', {'target_user': user})
+
+
+@login_required
+def settings_page(request):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    cfg = AppSettings.load()
+    if request.method == 'POST':
+        form = AppSettingsForm(request.POST, request.FILES, instance=cfg)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Pengaturan aplikasi disimpan.')
+            return redirect('settings_page')
+    else:
+        form = AppSettingsForm(instance=cfg)
+
+    return render(request, 'tickets/settings_form.html', {'form': form})
+
+
+@login_required
+def profile_page(request):
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        form = ProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profil berhasil diperbarui.')
+            return redirect('profile')
+    else:
+        form = ProfileForm(instance=profile)
+
+    return render(request, 'tickets/profile_form.html', {'form': form, 'profile': profile})
 
 
 @login_required

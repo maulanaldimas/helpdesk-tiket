@@ -1,0 +1,45 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Profil Saya{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="page-title">Profil Saya</h1>
+        <p class="page-sub">Kelola informasi akun, kontak, dan foto profil.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="card p-6 space-y-4">
+        {% csrf_token %}
+        <div class="flex items-center gap-4">
+            {% if profile.avatar %}
+                <img src="{{ profile.avatar.url }}" alt="{{ user.username }}" class="w-16 h-16 rounded-full object-cover border border-slate-200">
+            {% else %}
+                <span class="w-16 h-16 rounded-full text-white flex items-center justify-center font-display font-bold text-xl" style="background-color: var(--accent)">{{ user.username|first|upper }}</span>
+            {% endif %}
+            <div>
+                <p class="font-display font-bold text-slate-900">@{{ user.username }}</p>
+                <p class="text-xs text-slate-400">{{ user.profile.get_role_display }}{% if profile.company %} · {{ profile.company.name }}{% endif %}</p>
+            </div>
+        </div>
+
+        {% for field in form %}
+            <div>
+                <label class="label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <p class="text-xs text-slate-400 mt-1">{{ field.help_text }}</p>
+                {% endif %}
+                {% if field.errors %}
+                    <p class="text-rose-600 text-xs mt-1">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="flex gap-2 pt-2">
+            <button type="submit" class="btn btn-primary">Simpan Profil</button>
+            <a href="{% url 'change_password' %}" class="btn btn-secondary">Ubah Password</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

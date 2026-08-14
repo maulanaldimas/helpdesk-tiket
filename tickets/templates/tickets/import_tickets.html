@@ -1,0 +1,40 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Import Tiket{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="page-title">Import Tiket</h1>
+        <p class="page-sub">Impor tiket massal dari file CSV. Company/kategori yang belum ada akan dibuat otomatis.</p>
+    </div>
+
+    <div class="card p-6 space-y-6">
+        <div class="bg-slate-50 rounded-xl p-4 text-sm text-slate-600 space-y-2">
+            <p class="font-semibold text-slate-800">Format kolom yang didukung:</p>
+            <ul class="list-disc pl-5 space-y-1">
+                <li><code class="font-mono">title</code> (wajib) — judul tiket</li>
+                <li><code class="font-mono">description</code> — deskripsi masalah</li>
+                <li><code class="font-mono">company</code> (wajib) — nama company</li>
+                <li><code class="font-mono">category</code> — nama kategori</li>
+                <li><code class="font-mono">priority</code> — low / medium / high / urgent (default medium)</li>
+                <li><code class="font-mono">status</code> — open / in_progress / resolved / closed (default open)</li>
+            </ul>
+            <a href="{% url 'import_template' %}" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-medium">⬇ Unduh template CSV</a>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="label">File CSV (maks 2 MB)</label>
+                <input type="file" name="file" accept=".csv,text/csv" required
+                       class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:font-medium hover:file:bg-indigo-100">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary">Impor Sekarang</button>
+                <a href="{% url 'ticket_list' %}" class="btn btn-secondary">Batal</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

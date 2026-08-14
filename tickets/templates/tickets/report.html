@@ -10,6 +10,7 @@
     </div>
     <div class="flex gap-2">
         <a href="{% url 'report_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-secondary">⬇ Excel</a>
+        <a href="{% url 'report_export_csv' %}?{{ request.GET.urlencode }}" class="btn btn-secondary">⬇ CSV</a>
         <a href="{% url 'report_export_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-dark">⬇ PDF</a>
     </div>
 </div>

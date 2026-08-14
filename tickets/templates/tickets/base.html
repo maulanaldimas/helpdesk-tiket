@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Helpdesk{% endblock %} · Sokkafiber</title>
-    <link rel="icon" type="image/png" href="{% static 'tickets/img/logo.png' %}">
+    <title>{% block title %}Helpdesk{% endblock %} · {{ site_name }}</title>
+    <link rel="icon" type="image/png" href="{{ site_logo_url }}">
     <meta name="theme-color" content="#FFFFFF">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,19 +93,26 @@
         .prose-helpdesk hr { @apply my-6 border-slate-200; }
         .prose-helpdesk img { @apply rounded-lg my-3 max-w-full; }
     </style>
+    <style>
+        :root { --accent: {{ primary_color }}; }
+        .btn-primary { background-color: var(--accent) !important; }
+        .btn-primary:hover { background-color: color-mix(in srgb, var(--accent) 88%, #000) !important; }
+        .btn-primary:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen flex flex-col">
     <header class="bg-white/90 backdrop-blur sticky top-0 z-20 border-b border-slate-200">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
             <a href="{% url 'ticket_list' %}" class="flex items-center gap-2.5 font-display font-bold text-lg tracking-tight shrink-0">
-                <img src="{% static 'tickets/img/logo.png' %}" alt="Sokkafiber" class="h-10 w-auto">
-                <span class="text-slate-900">Sokkafiber</span>
+                <img src="{{ site_logo_url }}" alt="{{ site_name }}" class="h-10 w-auto">
+                <span class="text-slate-900">{{ site_name }}</span>
                 <span class="text-slate-400 font-normal hidden sm:inline">/ Helpdesk</span>
             </a>
 
             {% if user.is_authenticated %}
             <nav class="hidden md:flex items-center gap-1 text-sm">
                 <a href="{% url 'dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Dashboard</a>
+                <a href="{% url 'my_dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'my_dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Ringkasan Saya</a>
                 <a href="{% url 'ticket_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'ticket_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Tiket</a>
                 <a href="{% url 'article_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'article_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Panduan</a>
                 <a href="{% url 'report_page' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'report_page' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Laporan</a>
@@ -125,6 +132,7 @@
                         <a href="{% url 'category_list' %}" class="block px-4 py-2 hover:bg-slate-50">Kategori</a>
                         <div class="border-t border-slate-100 my-1"></div>
                         <a href="{% url 'article_create' %}" class="block px-4 py-2 hover:bg-slate-50">Tulis Artikel</a>
+                        <a href="{% url 'settings_page' %}" class="block px-4 py-2 hover:bg-slate-50">Pengaturan</a>
                     </div>
                 </details>
                 {% endif %}
@@ -144,7 +152,11 @@
 
                 <details class="dropdown relative">
                     <summary class="flex items-center gap-2 cursor-pointer select-none p-1 rounded-lg hover:bg-slate-100">
-                        <span class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-display font-bold text-sm">{{ user.username|first|upper }}</span>
+                        {% if user.profile.avatar %}
+                            <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="w-8 h-8 rounded-full object-cover">
+                        {% else %}
+                            <span class="w-8 h-8 rounded-full text-white flex items-center justify-center font-display font-bold text-sm" style="background-color: var(--accent)">{{ user.username|first|upper }}</span>
+                        {% endif %}
                         <span class="hidden lg:block text-left leading-tight">
                             <span class="block text-sm font-medium text-slate-800">{{ user.username }}</span>
                             <span class="block text-[11px] text-slate-400 uppercase tracking-wide">{{ user.profile.get_role_display }}</span>
@@ -155,6 +167,7 @@
                             <p class="font-medium text-slate-900">{{ user.username }}</p>
                             <p class="text-xs text-slate-400">{{ user.email|default:'tidak ada email' }}</p>
                         </div>
+                        <a href="{% url 'profile' %}" class="block px-4 py-2 hover:bg-slate-50">Profil Saya</a>
                         <a href="{% url 'change_password' %}" class="block px-4 py-2 hover:bg-slate-50">Ubah Password</a>
                         <form action="{% url 'logout' %}" method="post" class="border-t border-slate-100">
                             {% csrf_token %}
@@ -171,6 +184,7 @@
         {% if user.is_authenticated %}
         <nav class="md:hidden bg-white border-t border-slate-100 px-4 py-3 space-y-1 text-sm">
             <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'dashboard' %}bg-slate-100 font-medium text-slate-900{% endif %}">Dashboard</a>
+            <a href="{% url 'my_dashboard' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'my_dashboard' %}bg-slate-100 font-medium text-slate-900{% endif %}">Ringkasan Saya</a>
             <a href="{% url 'ticket_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'ticket_list' %}bg-slate-100 font-medium text-slate-900{% endif %}">Tiket</a>
             <a href="{% url 'article_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'article_list' %}bg-slate-100 font-medium text-slate-900{% endif %}">Panduan</a>
             <a href="{% url 'report_page' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'report_page' %}bg-slate-100 font-medium text-slate-900{% endif %}">Laporan</a>
@@ -184,6 +198,7 @@
                 <a href="{% url 'company_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Company</a>
                 <a href="{% url 'category_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Kategori</a>
                 <a href="{% url 'article_create' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Tulis Artikel</a>
+                <a href="{% url 'settings_page' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Pengaturan</a>
             </div>
             {% endif %}
         </nav>
@@ -206,7 +221,7 @@
     </main>
 
     <footer class="text-center text-xs text-slate-400 py-6 border-t border-slate-200">
-        Sokkafiber Helpdesk · Internal IT Support
+        {{ site_footer }}
     </footer>
 
     <script>
