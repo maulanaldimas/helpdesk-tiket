@@ -1,0 +1,99 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Laporan{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="page-title">Laporan Tiket</h1>
+        <p class="page-sub">{{ tickets|length }} tiket dalam hasil filter</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'report_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-secondary">⬇ Excel</a>
+        <a href="{% url 'report_export_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-dark">⬇ PDF</a>
+    </div>
+</div>
+
+<form method="get" class="card p-4 mb-4 flex flex-wrap gap-3 items-end">
+    <div>
+        <label class="label text-xs">Status</label>
+        <select name="status" class="w-auto">
+            <option value="">Semua</option>
+            {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label class="label text-xs">Prioritas</label>
+        <select name="priority" class="w-auto">
+            <option value="">Semua</option>
+            {% for value, label in priority_choices %}
+                <option value="{{ value }}" {% if request.GET.priority == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if companies|length > 1 %}
+    <div>
+        <label class="label text-xs">Company</label>
+        <select name="company" class="w-auto">
+            <option value="">Semua</option>
+            {% for c in companies %}
+                <option value="{{ c.id }}" {% if request.GET.company == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">Filter</button>
+</form>
+
+<div class="card overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-wide">
+                <th class="text-left px-4 py-2.5 font-medium">ID</th>
+                <th class="text-left px-4 py-2.5 font-medium">Judul</th>
+                <th class="text-left px-4 py-2.5 font-medium">Company</th>
+                <th class="text-left px-4 py-2.5 font-medium">Status</th>
+                <th class="text-left px-4 py-2.5 font-medium">Prioritas</th>
+                <th class="text-left px-4 py-2.5 font-medium">Assigned</th>
+                <th class="text-left px-4 py-2.5 font-medium">Dibuat</th>
+                <th class="text-left px-4 py-2.5 font-medium">SLA</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for t in tickets %}
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-2.5 font-mono text-slate-400">#{{ t.id }}</td>
+                    <td class="px-4 py-2.5">
+                        <a href="{% url 'ticket_detail' t.pk %}" class="text-slate-900 font-medium hover:text-indigo-600">{{ t.title }}</a>
+                    </td>
+                    <td class="px-4 py-2.5 text-slate-600">{{ t.company.name|default:'-' }}</td>
+                    <td class="px-4 py-2.5">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ t.status_badge_class }}">{{ t.get_status_display }}</span>
+                    </td>
+                    <td class="px-4 py-2.5">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ t.priority_badge_class }}">{{ t.get_priority_display }}</span>
+                    </td>
+                    <td class="px-4 py-2.5 text-slate-600">{% if t.assigned_to %}{{ t.assigned_to.username }}{% else %}-{% endif %}</td>
+                    <td class="px-4 py-2.5 text-slate-400 font-mono text-xs">{{ t.created_at|date:"d/m/Y" }}</td>
+                    <td class="px-4 py-2.5">
+                        {% if t.is_overdue %}
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700">Overdue</span>
+                        {% elif t.sla_deadline %}
+                            <span class="text-slate-400 font-mono text-xs">{{ t.sla_deadline|date:"d/m/Y" }}</span>
+                        {% else %}
+                            <span class="text-slate-300">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="8" class="text-center py-10 text-slate-400">Tidak ada data.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

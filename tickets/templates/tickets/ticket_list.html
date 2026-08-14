@@ -1,0 +1,85 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Daftar Tiket{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="page-title">Daftar Tiket</h1>
+        <p class="page-sub">{{ tickets.paginator.count }} tiket terdaftar</p>
+    </div>
+    <a href="{% url 'ticket_create' %}" class="btn btn-primary">+ Buat Tiket</a>
+</div>
+
+<form method="get" class="mb-5">
+    <div class="relative max-w-md">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" name="q" value="{{ query }}" placeholder="Cari judul atau deskripsi tiket..."
+               class="pl-9">
+    </div>
+</form>
+
+<div class="card divide-y divide-slate-100 overflow-hidden">
+    {% for ticket in tickets %}
+        <a href="{% url 'ticket_detail' ticket.pk %}"
+           class="flex items-center justify-between p-4 pl-5 border-l-4 {{ ticket.priority_border_class }} hover:bg-slate-50 transition">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                    {% if ticket.is_overdue %}
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 signal-dot shrink-0"></span>
+                    {% elif ticket.is_active %}
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 signal-dot shrink-0"></span>
+                    {% endif %}
+                    <p class="font-medium text-slate-900 truncate">
+                        <span class="font-mono text-slate-400 text-sm">#{{ ticket.id }}</span> {{ ticket.title }}
+                    </p>
+                </div>
+                <p class="text-sm text-slate-500 mt-0.5">{{ ticket.company.name|default:'Tanpa perusahaan' }} · {{ ticket.category.name|default:'Tanpa kategori' }}</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 ml-4">
+                {% if ticket.is_overdue %}
+                    <span class="text-xs font-medium px-2 py-1 rounded-full bg-rose-50 text-rose-700">Overdue</span>
+                {% endif %}
+                <span class="text-xs font-medium px-2 py-1 rounded-full {{ ticket.status_badge_class }}">{{ ticket.get_status_display }}</span>
+            </div>
+        </a>
+    {% empty %}
+        <div class="p-12 text-center">
+            <p class="text-sm text-slate-400">
+                {% if query %}Tidak ada tiket yang cocok dengan "{{ query }}".{% else %}Belum ada tiket.{% endif %}
+            </p>
+        </div>
+    {% endfor %}
+</div>
+
+{% if tickets.paginator.num_pages > 1 %}
+<div class="flex items-center justify-between mt-4 text-sm">
+    <p class="text-slate-400">
+        Halaman {{ tickets.number }} dari {{ tickets.paginator.num_pages }}
+    </p>
+    <div class="flex gap-1">
+        {% if tickets.has_previous %}
+            <a href="?page={{ tickets.previous_page_number }}{% if query %}&q={{ query }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">←</a>
+        {% endif %}
+
+        {% for num in tickets.paginator.page_range %}
+            {% if num == tickets.number %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-mono">{{ num }}</span>
+            {% elif num > tickets.number|add:"-3" and num < tickets.number|add:"3" %}
+                <a href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-mono">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if tickets.has_next %}
+            <a href="?page={{ tickets.next_page_number }}{% if query %}&q={{ query }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">→</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

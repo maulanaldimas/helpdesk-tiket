@@ -1,0 +1,41 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Kelola Company{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">Kelola Company</h1>
+    <p class="page-sub">Daftar perusahaan yang dilayani helpdesk.</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="md:col-span-2 card divide-y divide-slate-100">
+        {% for company in companies %}
+            <div class="flex items-center justify-between p-4">
+                <span class="text-slate-900 text-sm font-medium">{{ company.name }}</span>
+                <form method="post" action="{% url 'company_delete' company.pk %}"
+                      onsubmit="return confirm('Hapus company \'{{ company.name }}\'? Tiket yang terkait mungkin ikut terhapus.');">
+                    {% csrf_token %}
+                    <button type="submit" class="text-rose-600 hover:text-rose-700 text-xs font-medium">Hapus</button>
+                </form>
+            </div>
+        {% empty %}
+            <p class="p-12 text-center text-slate-400 text-sm">Belum ada company.</p>
+        {% endfor %}
+    </div>
+
+    <div class="card p-5 h-fit">
+        <h2 class="font-display font-semibold text-slate-900 mb-3 text-sm">Tambah Company</h2>
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            {% for field in form %}
+                <div>
+                    {{ field }}
+                    {% if field.errors %}<p class="text-rose-600 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-full">Tambah</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

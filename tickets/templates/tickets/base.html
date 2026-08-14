@@ -1,0 +1,194 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Helpdesk{% endblock %} · Sokkafiber</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230F172A'/><circle cx='32' cy='32' r='11' fill='%234F46E5'/></svg>">
+    <meta name="theme-color" content="#FFFFFF">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ['"Space Grotesk"', 'sans-serif'],
+              sans: ['Inter', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
+            },
+            boxShadow: {
+              card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',
+            }
+          }
+        }
+      }
+    </script>
+    <style type="text/tailwindcss">
+        @keyframes pulse-signal {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.7); }
+        }
+        .signal-dot { animation: pulse-signal 1.6s ease-in-out infinite; }
+
+        input[type="text"], input[type="password"], input[type="email"],
+        select, textarea {
+            @apply w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white transition;
+        }
+        input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus,
+        select:focus, textarea:focus {
+            @apply outline-none ring-2 ring-indigo-500/30 border-indigo-500;
+        }
+
+        .btn {
+            @apply inline-flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium px-4 py-2 transition cursor-pointer whitespace-nowrap;
+        }
+        .btn-primary {
+            @apply bg-indigo-600 text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40;
+        }
+        .btn-dark {
+            @apply bg-slate-900 text-white hover:bg-slate-800;
+        }
+        .btn-secondary {
+            @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50;
+        }
+        .btn-danger {
+            @apply bg-rose-50 text-rose-600 hover:bg-rose-100;
+        }
+
+        .card {
+            @apply bg-white rounded-xl border border-slate-200 shadow-card;
+        }
+        .page-title {
+            @apply font-display text-2xl font-bold tracking-tight text-slate-900;
+        }
+        .page-sub {
+            @apply text-sm text-slate-500 mt-1;
+        }
+        .label {
+            @apply block text-sm font-medium text-slate-700 mb-1;
+        }
+
+        details.dropdown > summary { list-style: none; }
+        details.dropdown > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen flex flex-col">
+    <header class="bg-white/90 backdrop-blur sticky top-0 z-20 border-b border-slate-200">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+            <a href="{% url 'ticket_list' %}" class="flex items-center gap-2.5 font-display font-bold text-lg tracking-tight shrink-0">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 signal-dot"></span>
+                <span class="text-slate-900">Sokkafiber</span>
+                <span class="text-slate-400 font-normal hidden sm:inline">/ Helpdesk</span>
+            </a>
+
+            {% if user.is_authenticated %}
+            <nav class="hidden md:flex items-center gap-1 text-sm">
+                <a href="{% url 'dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Dashboard</a>
+                <a href="{% url 'ticket_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'ticket_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Tiket</a>
+                <a href="{% url 'article_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'article_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Panduan</a>
+                <a href="{% url 'report_page' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'report_page' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Laporan</a>
+
+                {% if user_is_admin %}
+                <details class="dropdown relative">
+                    <summary class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer {% if request.resolver_match.url_name in 'user_list,user_create,company_list,category_list,article_create,article_edit' %}text-slate-900 bg-slate-100 font-medium{% endif %}">
+                        Kelola
+                    </summary>
+                    <div class="absolute left-0 mt-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 text-sm text-slate-700">
+                        <a href="{% url 'user_list' %}" class="block px-4 py-2 hover:bg-slate-50">Users</a>
+                        <a href="{% url 'company_list' %}" class="block px-4 py-2 hover:bg-slate-50">Company</a>
+                        <a href="{% url 'category_list' %}" class="block px-4 py-2 hover:bg-slate-50">Kategori</a>
+                        <div class="border-t border-slate-100 my-1"></div>
+                        <a href="{% url 'article_create' %}" class="block px-4 py-2 hover:bg-slate-50">Tulis Artikel</a>
+                    </div>
+                </details>
+                {% endif %}
+            </nav>
+
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <a href="{% url 'notification_list' %}" class="relative text-slate-400 hover:text-slate-700 transition p-2 rounded-lg hover:bg-slate-100" title="Notifikasi">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                    </svg>
+                    {% if unread_notif_count > 0 %}
+                        <span class="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-mono font-semibold flex items-center justify-center">{{ unread_notif_count }}</span>
+                    {% endif %}
+                </a>
+
+                <a href="{% url 'ticket_create' %}" class="btn btn-primary">+ Tiket Baru</a>
+
+                <details class="dropdown relative">
+                    <summary class="flex items-center gap-2 cursor-pointer select-none p-1 rounded-lg hover:bg-slate-100">
+                        <span class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-display font-bold text-sm">{{ user.username|first|upper }}</span>
+                        <span class="hidden lg:block text-left leading-tight">
+                            <span class="block text-sm font-medium text-slate-800">{{ user.username }}</span>
+                            <span class="block text-[11px] text-slate-400 uppercase tracking-wide">{{ user.profile.get_role_display }}</span>
+                        </span>
+                    </summary>
+                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 text-sm text-slate-700">
+                        <div class="px-4 py-2.5 border-b border-slate-100">
+                            <p class="font-medium text-slate-900">{{ user.username }}</p>
+                            <p class="text-xs text-slate-400">{{ user.email|default:'tidak ada email' }}</p>
+                        </div>
+                        <a href="{% url 'change_password' %}" class="block px-4 py-2 hover:bg-slate-50">Ubah Password</a>
+                        <form action="{% url 'logout' %}" method="post" class="border-t border-slate-100">
+                            {% csrf_token %}
+                            <button type="submit" class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Logout</button>
+                        </form>
+                    </div>
+                </details>
+            </div>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-primary">Masuk</a>
+            {% endif %}
+        </div>
+
+        {% if user.is_authenticated %}
+        <nav class="md:hidden bg-white border-t border-slate-100 px-4 py-3 space-y-1 text-sm">
+            <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'dashboard' %}bg-slate-100 font-medium text-slate-900{% endif %}">Dashboard</a>
+            <a href="{% url 'ticket_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'ticket_list' %}bg-slate-100 font-medium text-slate-900{% endif %}">Tiket</a>
+            <a href="{% url 'article_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'article_list' %}bg-slate-100 font-medium text-slate-900{% endif %}">Panduan</a>
+            <a href="{% url 'report_page' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'report_page' %}bg-slate-100 font-medium text-slate-900{% endif %}">Laporan</a>
+            {% if user_is_admin %}
+            <div class="pt-1 border-t border-slate-100">
+                <a href="{% url 'user_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Users</a>
+                <a href="{% url 'company_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Company</a>
+                <a href="{% url 'category_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Kategori</a>
+                <a href="{% url 'article_create' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Tulis Artikel</a>
+            </div>
+            {% endif %}
+        </nav>
+        {% endif %}
+    </header>
+
+    {% if messages %}
+    <div class="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-4">
+        {% for message in messages %}
+            <div class="rounded-lg px-4 py-3 text-sm mb-2 {% if message.tags == 'success' %}bg-emerald-50 text-emerald-800 border border-emerald-200{% elif message.tags == 'error' %}bg-rose-50 text-rose-800 border border-rose-200{% else %}bg-slate-100 text-slate-800 border border-slate-200{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="w-full max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 flex-1">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer class="text-center text-xs text-slate-400 py-6 border-t border-slate-200">
+        Sokkafiber Helpdesk · Internal IT Support
+    </footer>
+
+    <script>
+        document.addEventListener('click', function (e) {
+            document.querySelectorAll('details.dropdown[open]').forEach(function (d) {
+                if (!d.contains(e.target)) d.removeAttribute('open');
+            });
+        });
+    </script>
+</body>
+</html>

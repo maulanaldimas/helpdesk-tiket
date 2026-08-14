@@ -1,0 +1,21 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Notifikasi{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">Notifikasi</h1>
+    <p class="page-sub">Pembaruan terbaru pada tiket Anda.</p>
+</div>
+
+<div class="card divide-y divide-slate-100 overflow-hidden">
+    {% for notif in notifications %}
+        <a href="{% url 'ticket_detail' notif.ticket.pk %}" class="block p-4 hover:bg-slate-50 transition">
+            <p class="text-sm text-slate-800">{{ notif.message }}</p>
+            <p class="text-xs text-slate-400 font-mono mt-1">{{ notif.created_at }}</p>
+        </a>
+    {% empty %}
+        <div class="p-12 text-center text-sm text-slate-400">Belum ada notifikasi.</div>
+    {% endfor %}
+</div>
+{% endblock %}

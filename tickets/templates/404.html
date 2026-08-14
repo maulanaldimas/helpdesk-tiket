@@ -1,0 +1,13 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Halaman Tidak Ditemukan{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto text-center py-20">
+    <p class="font-display text-6xl font-bold text-slate-200">404</p>
+    <span class="inline-block w-2 h-2 rounded-full bg-indigo-600 signal-dot my-4"></span>
+    <h1 class="font-display text-xl font-bold text-slate-900">Halaman Tidak Ditemukan</h1>
+    <p class="text-slate-500 text-sm mt-2">Sinyalnya putus — halaman yang kamu cari tidak ada atau sudah dipindahkan.</p>
+    <a href="{% url 'dashboard' %}" class="btn btn-primary mt-6">Kembali ke Dashboard</a>
+</div>
+{% endblock %}

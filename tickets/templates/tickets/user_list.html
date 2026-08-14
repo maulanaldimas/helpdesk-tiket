@@ -1,0 +1,81 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Manajemen User{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="page-title">Manajemen User</h1>
+        <p class="page-sub">{{ users|length }} pengguna terdaftar</p>
+    </div>
+    <a href="{% url 'user_create' %}" class="btn btn-primary">+ Tambah User</a>
+</div>
+
+<form method="get" class="mb-4 flex items-center gap-2">
+    <select name="role" class="w-auto">
+        {% for value, label in role_choices %}
+            <option value="{{ value }}" {% if role_filter == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Filter</button>
+    {% if role_filter %}
+        <a href="{% url 'user_list' %}" class="text-sm text-slate-500 hover:text-slate-900">Reset</a>
+    {% endif %}
+</form>
+
+<div class="card overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-wide">
+                <th class="text-left px-4 py-2.5 font-medium">Username</th>
+                <th class="text-left px-4 py-2.5 font-medium">Nama</th>
+                <th class="text-left px-4 py-2.5 font-medium">Email</th>
+                <th class="text-left px-4 py-2.5 font-medium">Role</th>
+                <th class="text-left px-4 py-2.5 font-medium">Company</th>
+                <th class="text-left px-4 py-2.5 font-medium">Status</th>
+                <th class="text-left px-4 py-2.5 font-medium">Aksi</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for u in users %}
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-2.5 font-mono text-slate-700">{{ u.username }}{% if u == request.user %}<span class="text-xs text-indigo-500 ml-1">(anda)</span>{% endif %}</td>
+                    <td class="px-4 py-2.5 text-slate-600">{{ u.get_full_name|default:'-' }}</td>
+                    <td class="px-4 py-2.5 text-slate-500">{{ u.email|default:'-' }}</td>
+                    <td class="px-4 py-2.5">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if u.profile.role == 'admin' %}bg-indigo-50 text-indigo-700
+                            {% elif u.profile.role == 'staff' %}bg-sky-50 text-sky-700
+                            {% else %}bg-slate-100 text-slate-600{% endif %}">
+                            {{ u.profile.get_role_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2.5 text-slate-600">{{ u.profile.company.name|default:'-' }}</td>
+                    <td class="px-4 py-2.5">
+                        {% if u.is_active %}
+                            <span class="text-emerald-600 text-xs font-medium">Aktif</span>
+                        {% else %}
+                            <span class="text-rose-500 text-xs font-medium">Nonaktif</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2.5">
+                        <div class="flex items-center gap-3 text-xs font-medium">
+                            <a href="{% url 'user_edit' u.pk %}" class="text-slate-500 hover:text-slate-900">Edit</a>
+                            <a href="{% url 'reset_password' u.pk %}" class="text-indigo-600 hover:text-indigo-700">Reset PW</a>
+                            {% if u != request.user %}
+                            <form method="post" action="{% url 'user_delete' u.pk %}" class="inline"
+                                  onsubmit="return confirm('Hapus user \'{{ u.username }}\'?');">
+                                {% csrf_token %}
+                                <button type="submit" class="text-rose-600 hover:text-rose-700">Hapus</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center py-10 text-slate-400">Tidak ada user.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

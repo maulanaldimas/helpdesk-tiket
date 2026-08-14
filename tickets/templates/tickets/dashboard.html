@@ -1,0 +1,198 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-8">
+    <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-sub">Ringkasan aktivitas helpdesk Anda.</p>
+    </div>
+    <a href="{% url 'ticket_create' %}" class="btn btn-primary">+ Buat Tiket</a>
+</div>
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+    <div class="card p-4 sm:p-5">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Total Tiket</p>
+        <p class="font-display text-3xl font-bold text-slate-900 mt-2">{{ total }}</p>
+    </div>
+    <div class="card p-4 sm:p-5">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Aktif</p>
+        <p class="font-display text-3xl font-bold text-sky-600 mt-2">{{ status_counts.open|add:status_counts.in_progress }}</p>
+    </div>
+    <div class="card p-4 sm:p-5 {% if overdue_count > 0 %}border-rose-200{% endif %}">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide flex items-center gap-1.5">
+            {% if overdue_count > 0 %}<span class="w-1.5 h-1.5 rounded-full bg-rose-500 signal-dot"></span>{% endif %}
+            Overdue
+        </p>
+        <p class="font-display text-3xl font-bold {% if overdue_count > 0 %}text-rose-600{% else %}text-slate-900{% endif %} mt-2">{{ overdue_count }}</p>
+    </div>
+    <div class="card p-4 sm:p-5">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Kepatuhan SLA</p>
+        <p class="font-display text-3xl font-bold text-indigo-600 mt-2">{{ sla_compliance }}%</p>
+        {% if avg_resolution_hours %}
+            <p class="text-xs text-slate-400 mt-1.5">Rata-rata {{ avg_resolution_hours }} jam</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <div class="card p-5 lg:col-span-2">
+        <h2 class="font-display font-semibold text-slate-900 mb-4">Tren Tiket Masuk</h2>
+        <p class="text-xs text-slate-400 -mt-3 mb-4">14 hari terakhir</p>
+        <div class="relative h-64">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card p-5">
+        <h2 class="font-display font-semibold text-slate-900 mb-4">Status Tiket</h2>
+        <div class="space-y-3">
+            {% for s in status_data %}
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-slate-600">{{ s.label }}</span>
+                        <span class="font-mono text-xs text-slate-400">{{ s.count }}</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5">
+                        <div class="rounded-full h-1.5 {% if s.value == 'open' %}bg-emerald-500{% elif s.value == 'in_progress' %}bg-sky-500{% elif s.value == 'resolved' %}bg-slate-400{% else %}bg-slate-300{% endif %}" style="width: {% widthratio s.count total 100 %}%"></div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <div class="card p-5">
+        <h2 class="font-display font-semibold text-slate-900 mb-4">Prioritas</h2>
+        <div class="space-y-3">
+            {% for p in priority_data %}
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-600">{{ p.label }}</span>
+                    <span class="font-mono text-xs text-slate-400">{{ p.count }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card p-5">
+        <h2 class="font-display font-semibold text-slate-900 mb-4">Kategori Terbanyak</h2>
+        <div class="space-y-2">
+            {% for cat in category_breakdown %}
+                <div class="flex justify-between items-center text-sm py-1.5 border-b border-slate-50 last:border-0">
+                    <span class="text-slate-700">{{ cat.category__name|default:"Tanpa kategori" }}</span>
+                    <span class="font-mono text-xs text-slate-400">{{ cat.count }}</span>
+                </div>
+            {% empty %}
+                <p class="text-sm text-slate-400">Belum ada data.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card p-5">
+        <h2 class="font-display font-semibold text-slate-900 mb-4">Ringkasan</h2>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                <span class="text-slate-500">Resolved</span>
+                <span class="font-mono text-slate-700">{{ status_counts.resolved }}</span>
+            </div>
+            <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                <span class="text-slate-500">Closed</span>
+                <span class="font-mono text-slate-700">{{ status_counts.closed }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-slate-500">Aktif</span>
+                <span class="font-mono text-slate-700">{{ status_counts.open|add:status_counts.in_progress }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if staff_workload %}
+<div class="card mb-6">
+    <div class="p-5 pb-3">
+        <h2 class="font-display font-semibold text-slate-900">Beban Tiket per Staff</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-wide">
+                    <th class="text-left px-5 py-2.5 font-medium">Staff</th>
+                    <th class="text-left px-5 py-2.5 font-medium">Total Ditugaskan</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for w in staff_workload %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-5 py-2.5 font-medium text-slate-700">{{ w.assigned_to__username }}</td>
+                        <td class="px-5 py-2.5">
+                            <div class="flex items-center gap-2">
+                                <div class="w-32 bg-slate-100 rounded-full h-1.5">
+                                    <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {% widthratio w.total total 100 %}%"></div>
+                                </div>
+                                <span class="font-mono text-xs text-slate-400">{{ w.total }}</span>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="flex items-center justify-between p-5 pb-3">
+        <h2 class="font-display font-semibold text-slate-900">Tiket Terbaru</h2>
+        <a href="{% url 'ticket_list' %}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">Lihat semua →</a>
+    </div>
+    <div class="divide-y divide-slate-100">
+        {% for t in recent_tickets %}
+            <a href="{% url 'ticket_detail' t.pk %}" class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition">
+                <div class="min-w-0">
+                    <span class="font-mono text-slate-400 text-sm">#{{ t.id }}</span>
+                    <span class="text-slate-800 text-sm ml-2 font-medium">{{ t.title }}</span>
+                </div>
+                <span class="text-xs px-2.5 py-1 rounded-full font-medium {{ t.status_badge_class }}">{{ t.get_status_display }}</span>
+            </a>
+        {% empty %}
+            <p class="p-8 text-center text-sm text-slate-400">Belum ada tiket.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var ctx = document.getElementById('trendChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ trend_labels|safe }},
+            datasets: [{
+                label: 'Tiket masuk',
+                data: {{ trend_counts }},
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79, 70, 229, 0.08)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 3,
+                pointBackgroundColor: '#4f46e5',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, color: '#94a3b8' }, grid: { color: '#f1f5f9' } },
+                x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 } , grid: { display: false } }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

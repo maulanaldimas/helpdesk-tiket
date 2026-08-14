@@ -1,0 +1,37 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Tiket Baru{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <div class="mb-6">
+        <h1 class="page-title">Buat Tiket Baru</h1>
+        <p class="page-sub">Jelaskan masalah yang Anda alami sejelas mungkin.</p>
+    </div>
+
+    <form method="post" class="card p-6 space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+            {% if field.name == 'company' and locked_company %}
+                <div>
+                    <label class="label">Company</label>
+                    <input type="text" value="{{ locked_company.name }}" disabled
+                           class="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-500 cursor-not-allowed">
+                </div>
+            {% else %}
+                <div>
+                    <label class="label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <p class="text-xs text-slate-400 mt-1">{{ field.help_text }}</p>
+                    {% endif %}
+                    {% if field.errors %}
+                        <p class="text-rose-600 text-xs mt-1">{{ field.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+        <button type="submit" class="btn btn-primary w-full py-2.5 mt-2">Kirim Tiket</button>
+    </form>
+</div>
+{% endblock %}

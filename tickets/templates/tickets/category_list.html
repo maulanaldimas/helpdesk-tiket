@@ -1,0 +1,46 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Kelola Kategori{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">Kelola Kategori</h1>
+    <p class="page-sub">Kategori untuk mengelompokkan tiket dan artikel.</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="md:col-span-2 card divide-y divide-slate-100">
+        {% for category in categories %}
+            <div class="flex items-center justify-between p-4">
+                <div>
+                    <p class="text-slate-900 text-sm font-medium">{{ category.name }}</p>
+                    {% if category.description %}
+                        <p class="text-slate-400 text-xs mt-0.5">{{ category.description }}</p>
+                    {% endif %}
+                </div>
+                <form method="post" action="{% url 'category_delete' category.pk %}"
+                      onsubmit="return confirm('Hapus kategori \'{{ category.name }}\'?');">
+                    {% csrf_token %}
+                    <button type="submit" class="text-rose-600 hover:text-rose-700 text-xs font-medium">Hapus</button>
+                </form>
+            </div>
+        {% empty %}
+            <p class="p-12 text-center text-slate-400 text-sm">Belum ada kategori.</p>
+        {% endfor %}
+    </div>
+
+    <div class="card p-5 h-fit">
+        <h2 class="font-display font-semibold text-slate-900 mb-3 text-sm">Tambah Kategori</h2>
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            {% for field in form %}
+                <div>
+                    {{ field }}
+                    {% if field.errors %}<p class="text-rose-600 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-full">Tambah</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Tiket #{{ ticket.id }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'ticket_list' %}" class="text-sm text-slate-500 hover:text-slate-900 transition inline-flex items-center gap-1">
+    ← Kembali
+</a>
+
+<div class="card border-l-4 {{ ticket.priority_border_class }} p-6 mt-3">
+    <div class="flex justify-between items-start gap-4 flex-wrap">
+        <div>
+            <p class="font-mono text-sm text-slate-400">#{{ ticket.id }}</p>
+            <h1 class="page-title">{{ ticket.title }}</h1>
+            <p class="text-slate-500 text-sm mt-1">{{ ticket.company.name|default:'Tanpa perusahaan' }} · {{ ticket.category.name|default:'Tanpa kategori' }}</p>
+        </div>
+
+        {% if can_manage %}
+        <form method="post" class="flex items-center gap-2">
+            {% csrf_token %}
+            <select name="status" class="w-auto">
+                {% for value, label in ticket.STATUS_CHOICES %}
+                    <option value="{{ value }}" {% if ticket.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" name="status_submit" class="btn btn-dark">Update</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <p class="text-slate-700 my-4 leading-relaxed whitespace-pre-line">{{ ticket.description }}</p>
+
+    <div class="flex flex-wrap gap-2 items-center text-sm">
+        <span class="px-2.5 py-1 rounded-full font-medium {{ ticket.status_badge_class }}">{{ ticket.get_status_display }}</span>
+        <span class="px-2.5 py-1 rounded-full font-medium {{ ticket.priority_badge_class }}">{{ ticket.get_priority_display }}</span>
+        {% if ticket.is_overdue %}
+            <span class="px-2.5 py-1 rounded-full font-medium bg-rose-50 text-rose-700">⚠ Overdue</span>
+        {% endif %}
+        <span class="text-slate-400">
+            Assigned: <span class="text-slate-600">{% if ticket.assigned_to %}{{ ticket.assigned_to.username }}{% else %}Belum ada{% endif %}</span>
+        </span>
+    </div>
+
+    <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-400 font-mono mt-3">
+        <span>SLA: {{ ticket.sla_deadline|date:"d M Y H:i" }}</span>
+        <span>Dibuat: {{ ticket.created_at|date:"d M Y H:i" }}</span>
+        {% if ticket.closed_at %}
+            <span>Ditutup: {{ ticket.closed_at|date:"d M Y H:i" }}</span>
+        {% endif %}
+    </div>
+
+    {% if can_manage %}
+    <form method="post" class="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
+        {% csrf_token %}
+        <select name="assigned_to" class="w-auto">
+            <option value="">— Unassign —</option>
+            {% for staff in staff_users %}
+                <option value="{{ staff.id }}" {% if ticket.assigned_to_id == staff.id %}selected{% endif %}>{{ staff.username }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" name="assign_submit" class="btn btn-primary">Assign</button>
+    </form>
+    {% endif %}
+
+    <p class="text-xs text-slate-400 mt-4">Dibuat oleh {{ ticket.created_by.username }} · {{ ticket.created_at }}</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+    <div class="card p-6">
+        <h2 class="font-display font-semibold text-slate-900 mb-4">Komentar</h2>
+
+        <div class="space-y-4 mb-6">
+            {% for comment in comments %}
+                <div class="border-l-2 border-slate-200 pl-3">
+                    <p class="text-sm">
+                        <span class="font-medium text-slate-900">{{ comment.author.username }}</span>
+                        <span class="text-slate-400 font-mono text-xs">· {{ comment.created_at }}</span>
+                    </p>
+                    <p class="text-sm text-slate-700 mt-0.5">{{ comment.message }}</p>
+                </div>
+            {% empty %}
+                <p class="text-sm text-slate-400">Belum ada komentar.</p>
+            {% endfor %}
+        </div>
+
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            {{ comment_form.message }}
+            <button type="submit" name="comment_submit" class="btn btn-primary">Kirim Komentar</button>
+        </form>
+    </div>
+
+    <div class="card p-6">
+        <h2 class="font-display font-semibold text-slate-900 mb-4">Riwayat Aktivitas</h2>
+        <div class="space-y-3">
+            {% for act in activities %}
+                <div class="flex items-start gap-3 text-sm">
+                    <span class="mt-1.5 w-2 h-2 rounded-full shrink-0
+                        {% if act.action == 'created' %}bg-indigo-500
+                        {% elif act.action == 'status' %}bg-slate-400
+                        {% elif act.action == 'comment' %}bg-sky-500
+                        {% else %}bg-amber-400{% endif %}"></span>
+                    <div>
+                        <p class="text-slate-700">
+                            {% if act.user %}<span class="font-medium text-slate-900">{{ act.user.username }}</span>{% else %}Sistem{% endif %}
+                            {{ act.get_action_display|lower }}
+                            {% if act.detail %}<span class="text-slate-500">— {{ act.detail }}</span>{% endif %}
+                        </p>
+                        <p class="text-xs text-slate-400 font-mono">{{ act.created_at|date:"d M Y H:i" }}</p>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-sm text-slate-400">Belum ada aktivitas.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
