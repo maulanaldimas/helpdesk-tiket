@@ -1,13 +1,12 @@
 {% extends 'tickets/base.html' %}
+{% load static %}
 
 {% block title %}Masuk{% endblock %}
 
 {% block content %}
 <div class="max-w-sm mx-auto mt-10 sm:mt-16">
     <div class="text-center mb-8">
-        <span class="inline-flex w-12 h-12 rounded-2xl bg-indigo-600 items-center justify-center shadow-lg shadow-indigo-600/20 mb-5">
-            <span class="w-3 h-3 rounded-full bg-white signal-dot"></span>
-        </span>
+        <img src="{% static 'tickets/img/logo.png' %}" alt="Sokkafiber" class="h-24 w-auto mx-auto mb-5">
         <h1 class="page-title">Masuk ke Helpdesk</h1>
         <p class="page-sub">Sokkafiber & Affiliate Companies</p>
     </div>

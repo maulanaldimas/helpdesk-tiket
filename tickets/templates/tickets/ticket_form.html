@@ -9,7 +9,7 @@
         <p class="page-sub">Jelaskan masalah yang Anda alami sejelas mungkin.</p>
     </div>
 
-    <form method="post" class="card p-6 space-y-4">
+    <form method="post" class="card p-6 space-y-4" enctype="multipart/form-data">
         {% csrf_token %}
         {% for field in form %}
             {% if field.name == 'company' and locked_company %}

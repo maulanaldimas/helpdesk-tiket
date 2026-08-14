@@ -4,9 +4,35 @@ from .models import Ticket, Comment, Company, Category, Profile, Article
 
 INPUT_CLASS = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent'
 SELECT_CLASS = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500'
+FILE_CLASS = 'block w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 transition'
+
+
+class MultipleFileInput(forms.FileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """FileField yang menerima banyak file sekaligus dari widget multiple."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput(attrs={'class': FILE_CLASS}))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        if not data:
+            return []
+        if isinstance(data, (list, tuple)):
+            return [super().clean(d, initial) for d in data]
+        return [super().clean(data, initial)]
 
 
 class TicketForm(forms.ModelForm):
+    files = MultipleFileField(
+        label='Lampiran',
+        required=False,
+        help_text='Pilih beberapa file sekaligus (screenshot, log, dokumen). Maks 10 MB per file.',
+    )
+
     class Meta:
         model = Ticket
         fields = ['title', 'description', 'company', 'category', 'priority']
@@ -20,6 +46,12 @@ class TicketForm(forms.ModelForm):
 
 
 class CommentForm(forms.ModelForm):
+    files = MultipleFileField(
+        label='Lampiran',
+        required=False,
+        help_text='Maks 10 MB per file.',
+    )
+
     class Meta:
         model = Comment
         fields = ['message']

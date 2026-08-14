@@ -198,6 +198,60 @@ class TicketFlowTests(TestCase):
         })
         self.assertTrue(Activity.objects.filter(ticket=ticket, action='comment').exists())
 
+    def test_create_ticket_with_attachments(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.login(self.requester)
+        upload = SimpleUploadedFile('screenshot.png', b'fake-image-bytes', content_type='image/png')
+        self.client.post(reverse('ticket_create'), {
+            'title': 'Monitor mati',
+            'description': 'Tidak ada gambar',
+            'company': self.company.id,
+            'category': self.category.id,
+            'priority': 'high',
+            'files': upload,
+        })
+        ticket = Ticket.objects.get(title='Monitor mati')
+        self.assertEqual(ticket.attachments.count(), 1)
+        self.assertEqual(ticket.attachments.first().uploaded_by, self.requester)
+        self.assertTrue(Activity.objects.filter(ticket=ticket, action='attachment').exists())
+
+    def test_comment_with_attachment(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.login(self.admin)
+        ticket = make_ticket(self.requester, self.company, self.category)
+        upload = SimpleUploadedFile('log.txt', b'log-contents', content_type='text/plain')
+        self.client.post(reverse('ticket_detail', args=[ticket.pk]), {
+            'comment_submit': '1',
+            'message': 'Ini lognya.',
+            'files': upload,
+        })
+        self.assertEqual(ticket.attachments.count(), 1)
+        self.assertTrue(ticket.attachments.first().filename().startswith('log'))
+
+    def test_attachment_access_control(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.login(self.requester)
+        upload = SimpleUploadedFile('rahasia.txt', b'secrets', content_type='text/plain')
+        self.client.post(reverse('ticket_create'), {
+            'title': 'Tiket rahasia',
+            'description': 'x',
+            'company': self.company.id,
+            'category': self.category.id,
+            'priority': 'medium',
+            'files': upload,
+        })
+        ticket = Ticket.objects.get(title='Tiket rahasia')
+        att = ticket.attachments.first()
+        url = f'/media/{att.file.name}'
+        # pemilik tiket bisa mengakses lampirannya
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 200)
+        # requester lain tidak boleh (404)
+        other = make_user('req2', 'requester', self.company)
+        self.client.login(username='req2', password='pass12345')
+        r2 = self.client.get(url)
+        self.assertEqual(r2.status_code, 404)
+
     def test_login_flow(self):
         response = self.client.post(reverse('login'), {
             'username': 'req', 'password': 'pass12345',

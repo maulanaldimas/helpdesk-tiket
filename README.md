@@ -9,6 +9,7 @@ Sistem tiket IT support (helpdesk) berbasis Django yang lengkap untuk perusahaan
 ### Manajemen Tiket
 - Buat, lihat, cari, dan filter tiket berdasarkan status & prioritas
 - Komentar pada tiket + notifikasi in-app & email
+- Lampiran file (screenshot, log, dokumen) pada tiket & komentar
 - Penugasan tiket ke staff
 - SLA otomatis per prioritas (urgent 4 jam, high 24 jam, medium 72 jam, low 168 jam)
 - Penanda **Overdue** pada tiket yang melewati SLA
@@ -53,7 +54,9 @@ Sistem tiket IT support (helpdesk) berbasis Django yang lengkap untuk perusahaan
 - Konfigurasi via `.env` (secret key, debug, database, email, host)
 - Logging berjenjang ke file & console
 - Static files via WhiteNoise (siap `collectstatic`)
-- 27 tes otomatis
+- **Docker & docker-compose** (web + PostgreSQL)
+- Lampiran tiket dilindungi akses (hanya user terkait)
+- 30 tes otomatis
 
 ---
 
@@ -100,6 +103,32 @@ Buka `http://127.0.0.1:8000/`.
 > halaman Django admin (`/admin/`) atau halaman Manajemen User di aplikasi.
 > Setiap user baru otomatis mendapat role `Requester`.
 
+## Menjalankan dengan Docker (disarankan untuk produksi)
+
+```bash
+# 1. Salin konfigurasi (opsional; ada default bawaan)
+copy .env.example .env
+
+# 2. Bangun & jalankan (web + PostgreSQL)
+docker compose up -d --build
+
+# 3. Buat superuser di dalam container web
+docker compose exec web python manage.py createsuperuser
+
+# Buka http://localhost:8000
+```
+
+Variabel penting saat pakai Docker (diatur lewat `.env`):
+`SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS`, `SITE_URL`, `DB_PASSWORD`.
+Database otomatis memakai PostgreSQL dan migrasi + `collectstatic` dijalankan otomatis oleh `entrypoint.sh`.
+
+Perintah berguna:
+```bash
+docker compose logs -f web      # lihat log
+docker compose down             # hentikan (data tetap tersimpan)
+docker compose down -v          # hentikan + hapus volume/data
+```
+
 ## Akun Demo
 
 | Username    | Password     | Role      |
@@ -144,8 +173,12 @@ helpdesk-tiket/
 │   ├── views.py         # Semua view (tiket, laporan, user, KB, dashboard)
 │   ├── forms.py
 │   ├── urls.py
-│   ├── tests.py         # 27 tes otomatis
+│   ├── tests.py         # 30 tes otomatis
 │   └── templates/tickets/
+├── Dockerfile           # Image aplikasi (Python 3.12 + gunicorn)
+├── docker-compose.yml   # Orchestrasi web + PostgreSQL
+├── entrypoint.sh        # migrate + collectstatic otomatis saat start
+├── .dockerignore
 ├── .env.example         # Template konfigurasi environment
 ├── requirements.txt
 └── db.sqlite3           # Database development

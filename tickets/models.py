@@ -1,3 +1,5 @@
+import os
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -142,6 +144,26 @@ class Comment(models.Model):
         return f"Comment by {self.author.username} on Ticket #{self.ticket.id}"
 
 
+class TicketAttachment(models.Model):
+    """Lampiran file pada sebuah tiket (screenshot, log, dokumen, dll)."""
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='tickets/%Y/%m/%d/')
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def filename(self):
+        return os.path.basename(self.file.name)
+
+    def size_kb(self):
+        try:
+            return round(self.file.size / 1024)
+        except (OSError, ValueError):
+            return 0
+
+    def __str__(self):
+        return f"Attachment on Ticket #{self.ticket.id}: {self.filename()}"
+
+
 class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE)
@@ -160,6 +182,7 @@ class Activity(models.Model):
         ('assign', 'Penugasan'),
         ('unassign', 'Batalkan Penugasan'),
         ('comment', 'Komentar'),
+        ('attachment', 'Lampiran'),
     ]
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='activities')
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)

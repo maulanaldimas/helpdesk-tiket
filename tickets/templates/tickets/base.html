@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Helpdesk{% endblock %} · Sokkafiber</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230F172A'/><circle cx='32' cy='32' r='11' fill='%234F46E5'/></svg>">
+    <link rel="icon" type="image/png" href="{% static 'tickets/img/logo.png' %}">
     <meta name="theme-color" content="#FFFFFF">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,7 +80,7 @@
     <header class="bg-white/90 backdrop-blur sticky top-0 z-20 border-b border-slate-200">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
             <a href="{% url 'ticket_list' %}" class="flex items-center gap-2.5 font-display font-bold text-lg tracking-tight shrink-0">
-                <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 signal-dot"></span>
+                <img src="{% static 'tickets/img/logo.png' %}" alt="Sokkafiber" class="h-10 w-auto">
                 <span class="text-slate-900">Sokkafiber</span>
                 <span class="text-slate-400 font-normal hidden sm:inline">/ Helpdesk</span>
             </a>

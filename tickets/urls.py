@@ -8,6 +8,9 @@ urlpatterns = [
     path('ticket/new/', views.ticket_create, name='ticket_create'),
     path('notifications/', views.notification_list, name='notification_list'),
 
+    # Lampiran tiket (hanya untuk user dengan akses tiket)
+    path('media/tickets/<path:path>', views.protected_media, name='protected_media'),
+
     # Laporan
     path('report/', views.report_page, name='report_page'),
     path('report/export/excel/', views.report_export_excel, name='report_export_excel'),

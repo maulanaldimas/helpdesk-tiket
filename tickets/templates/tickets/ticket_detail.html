@@ -30,6 +30,23 @@
 
     <p class="text-slate-700 my-4 leading-relaxed whitespace-pre-line">{{ ticket.description }}</p>
 
+    {% if attachments %}
+    <div class="mb-4">
+        <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Lampiran ({{ attachments|length }})</p>
+        <div class="flex flex-wrap gap-2">
+            {% for att in attachments %}
+                <a href="{{ att.file.url }}" target="_blank" class="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                    {{ att.filename }}
+                    <span class="text-slate-400 font-mono">{{ att.size_kb }} KB</span>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="flex flex-wrap gap-2 items-center text-sm">
         <span class="px-2.5 py-1 rounded-full font-medium {{ ticket.status_badge_class }}">{{ ticket.get_status_display }}</span>
         <span class="px-2.5 py-1 rounded-full font-medium {{ ticket.priority_badge_class }}">{{ ticket.get_priority_display }}</span>
@@ -83,9 +100,10 @@
             {% endfor %}
         </div>
 
-        <form method="post" class="space-y-3">
+        <form method="post" class="space-y-3" enctype="multipart/form-data">
             {% csrf_token %}
             {{ comment_form.message }}
+            {{ comment_form.files }}
             <button type="submit" name="comment_submit" class="btn btn-primary">Kirim Komentar</button>
         </form>
     </div>

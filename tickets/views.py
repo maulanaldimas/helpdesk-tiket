@@ -18,7 +18,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, ExpressionWrapper, DurationField, F, Q
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -31,14 +31,28 @@ from .forms import (
     UserCreateForm,
     UserEditForm,
 )
-from .models import Activity, Article, Category, Company, Notification, Profile, Ticket
+from .models import Activity, Article, Category, Company, Notification, Profile, Ticket, TicketAttachment
 
 logger = logging.getLogger('tickets')
+
+MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB per file
 
 
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
+def save_attachments(ticket, files, user):
+    """Simpan daftar lampiran ke tiket; abaikan file yang melebihi batas. Return jumlah tersimpan."""
+    count = 0
+    for f in files or []:
+        if not f:
+            continue
+        if f.size > MAX_ATTACHMENT_SIZE:
+            continue
+        TicketAttachment.objects.create(ticket=ticket, file=f, uploaded_by=user)
+        count += 1
+    return count
 
 def notify(user, ticket, message):
     if not user:
@@ -95,6 +109,14 @@ def admin_required(user):
     return hasattr(user, 'profile') and user.profile.role == 'admin'
 
 
+@login_required
+def protected_media(request, path):
+    """Sajikan lampiran tiket hanya untuk user yang boleh mengakses tiketnya."""
+    attachment = get_object_or_404(TicketAttachment, file='tickets/' + path)
+    get_visible_ticket(request, attachment.ticket_id)
+    return FileResponse(attachment.file.open('rb'))
+
+
 # ---------------------------------------------------------------------------
 # Ticket
 # ---------------------------------------------------------------------------
@@ -129,13 +151,17 @@ def ticket_detail(request, pk):
 
     if request.method == 'POST':
         if 'comment_submit' in request.POST:
-            comment_form = CommentForm(request.POST)
+            comment_form = CommentForm(request.POST, request.FILES)
             if comment_form.is_valid():
                 comment = comment_form.save(commit=False)
                 comment.ticket = ticket
                 comment.author = request.user
                 comment.save()
                 log_activity(ticket, request.user, 'comment', comment.message[:255])
+
+                added = save_attachments(ticket, comment_form.cleaned_data.get('files') or [], request.user)
+                if added:
+                    log_activity(ticket, request.user, 'attachment', f"{added} file")
 
                 recipients = {ticket.created_by, ticket.assigned_to}
                 recipients.discard(request.user)
@@ -178,6 +204,7 @@ def ticket_detail(request, pk):
     comment_form = CommentForm()
     comments = ticket.comments.all().order_by('created_at')
     activities = ticket.activities.select_related('user').order_by('-created_at')[:30]
+    attachments = ticket.attachments.order_by('-uploaded_at')
 
     staff_users = []
     if can_manage:
@@ -187,6 +214,7 @@ def ticket_detail(request, pk):
         'ticket': ticket,
         'comments': comments,
         'activities': activities,
+        'attachments': attachments,
         'comment_form': comment_form,
         'can_manage': can_manage,
         'staff_users': staff_users,
@@ -199,7 +227,7 @@ def ticket_create(request):
     locked_company = profile.company if profile.role != 'admin' else None
 
     if request.method == 'POST':
-        form = TicketForm(request.POST)
+        form = TicketForm(request.POST, request.FILES)
         if locked_company:
             form.fields['company'].queryset = Company.objects.filter(id=locked_company.id)
         if form.is_valid():
@@ -209,6 +237,9 @@ def ticket_create(request):
                 ticket.company = locked_company
             ticket.save()
             log_activity(ticket, request.user, 'created', f"Prioritas {ticket.get_priority_display()}")
+            added = save_attachments(ticket, form.cleaned_data.get('files') or [], request.user)
+            if added:
+                log_activity(ticket, request.user, 'attachment', f"{added} file")
             logger.info("Ticket #%s dibuat oleh %s", ticket.id, request.user.username)
             return redirect('ticket_detail', pk=ticket.pk)
     else:
