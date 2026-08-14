@@ -10,10 +10,18 @@
 
 <div class="card divide-y divide-slate-100 overflow-hidden">
     {% for notif in notifications %}
-        <a href="{% url 'ticket_detail' notif.ticket.pk %}" class="block p-4 hover:bg-slate-50 transition">
+        {% if notif.ticket %}
+            <a href="{% url 'ticket_detail' notif.ticket.pk %}" class="block p-4 hover:bg-slate-50 transition">
+        {% else %}
+            <div class="block p-4">
+        {% endif %}
             <p class="text-sm text-slate-800">{{ notif.message }}</p>
             <p class="text-xs text-slate-400 font-mono mt-1">{{ notif.created_at }}</p>
-        </a>
+        {% if notif.ticket %}
+            </a>
+        {% else %}
+            </div>
+        {% endif %}
     {% empty %}
         <div class="p-12 text-center text-sm text-slate-400">Belum ada notifikasi.</div>
     {% endfor %}

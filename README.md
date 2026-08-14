@@ -40,6 +40,7 @@ Sistem tiket IT support (helpdesk) berbasis Django yang lengkap untuk perusahaan
 - Edit user, aktif/nonaktif, hapus (dengan proteksi akun sendiri)
 - Reset password oleh admin
 - Ubah password sendiri
+- **Registrasi mandiri** dengan persetujuan admin (toggle via `REGISTRATION_OPEN`)
 
 ### Knowledge Base / FAQ
 - Artikel solusi yang bisa dicari & difilter per kategori
@@ -56,7 +57,7 @@ Sistem tiket IT support (helpdesk) berbasis Django yang lengkap untuk perusahaan
 - Static files via WhiteNoise (siap `collectstatic`)
 - **Docker & docker-compose** (web + PostgreSQL)
 - Lampiran tiket dilindungi akses (hanya user terkait)
-- 30 tes otomatis
+- 39 tes otomatis
 
 ---
 
@@ -183,7 +184,7 @@ helpdesk-tiket/
 │   ├── views.py         # Semua view (tiket, laporan, user, KB, dashboard)
 │   ├── forms.py
 │   ├── urls.py
-│   ├── tests.py         # 30 tes otomatis
+│   ├── tests.py         # 39 tes otomatis
 │   └── templates/tickets/
 ├── Dockerfile           # Image aplikasi (Python 3.12 + gunicorn)
 ├── docker-compose.yml   # Orchestrasi web + PostgreSQL
@@ -196,7 +197,7 @@ helpdesk-tiket/
 
 ## Roadmap
 
-- [ ] Registrasi mandiri dengan persetujuan admin
+- [x] Registrasi mandiri dengan persetujuan admin
 - [ ] Knowledge base dengan markup (markdown)
 - [ ] Webhook ke Slack/Teams
 - [ ] Autentikasi LDAP/SSO

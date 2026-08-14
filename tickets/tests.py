@@ -319,3 +319,88 @@ class ExportTests(TestCase):
         response = self.client.get(reverse('report_export_pdf'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/pdf')
+
+
+class RegistrationTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.admin = make_user('admin', 'admin')
+
+    def register(self, username='budi', **overrides):
+        data = {
+            'username': username,
+            'first_name': 'Budi Setiawan',
+            'email': f'{username}@test.com',
+            'company': self.company.id,
+            'password1': 'rahasia123',
+            'password2': 'rahasia123',
+        }
+        data.update(overrides)
+        return self.client.post(reverse('register'), data)
+
+    def test_register_creates_pending_user(self):
+        response = self.register()
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(username='budi')
+        self.assertFalse(user.is_active)
+        self.assertEqual(user.profile.role, 'requester')
+        self.assertEqual(user.profile.company, self.company)
+        self.assertTrue(user.profile.pending_approval)
+
+    def test_pending_user_cannot_login(self):
+        self.register()
+        response = self.client.post(reverse('login'), {
+            'username': 'budi', 'password': 'rahasia123',
+        })
+        self.assertEqual(response.status_code, 200)  # form error, tidak redirect
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_duplicate_username_rejected(self):
+        make_user('budi', 'requester', self.company)
+        response = self.register()
+        self.assertContains(response, 'sudah dipakai')
+
+    def test_password_mismatch_rejected(self):
+        response = self.register(password2='berbeda123')
+        self.assertContains(response, 'tidak cocok')
+
+    def test_admin_approve_activates_user(self):
+        self.register()
+        user = User.objects.get(username='budi')
+        self.client.login(username='admin', password='pass12345')
+        response = self.client.post(reverse('approve_user', args=[user.pk]))
+        self.assertRedirects(response, reverse('pending_approvals'))
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.profile.pending_approval)
+        # user yang disetujui menerima notifikasi
+        self.assertTrue(user.notifications.exists())
+
+    def test_admin_reject_deletes_user(self):
+        self.register()
+        user = User.objects.get(username='budi')
+        self.client.login(username='admin', password='pass12345')
+        response = self.client.post(reverse('reject_user', args=[user.pk]))
+        self.assertRedirects(response, reverse('pending_approvals'))
+        self.assertFalse(User.objects.filter(username='budi').exists())
+
+    def test_non_admin_cannot_access_pending(self):
+        staff = make_user('staff', 'staff', self.company)
+        self.client.login(username='staff', password='pass12345')
+        response = self.client.get(reverse('pending_approvals'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_register_page_requires_company(self):
+        response = self.register(company='')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username='budi').exists())
+
+    def test_registration_closed(self):
+        from django.test import override_settings
+        with override_settings(REGISTRATION_OPEN=False):
+            response = self.client.get(reverse('register'))
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'ditutup')
+            # POST juga tidak membuat akun
+            self.register()
+            self.assertFalse(User.objects.filter(username='budi').exists())

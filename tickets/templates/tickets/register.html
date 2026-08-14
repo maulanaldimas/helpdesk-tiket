@@ -1,0 +1,48 @@
+{% extends 'tickets/base.html' %}
+{% load static %}
+
+{% block title %}Daftar Akun{% endblock %}
+
+{% block content %}
+<div class="max-w-sm mx-auto mt-10 sm:mt-16">
+    <div class="text-center mb-8">
+        <img src="{% static 'tickets/img/logo.png' %}" alt="Sokkafiber" class="h-24 w-auto mx-auto mb-5">
+        <h1 class="page-title">Daftar Akun</h1>
+        <p class="page-sub">Pendaftaran akan ditinjau oleh admin sebelum aktif.</p>
+    </div>
+
+    {% if registration_closed %}
+        <div class="card p-8 text-center">
+            <p class="text-sm text-slate-500">Pendaftaran mandiri sedang ditutup.</p>
+            <a href="{% url 'login' %}" class="btn btn-secondary mt-4">Kembali ke Masuk</a>
+        </div>
+    {% elif registered %}
+        <div class="card p-8 text-center">
+            <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <h2 class="font-display text-lg font-bold text-slate-900">Pendaftaran Terkirim</h2>
+            <p class="text-sm text-slate-500 mt-2">Akun Anda sedang menunggu persetujuan admin. Anda akan menerima notifikasi setelah disetujui.</p>
+            <a href="{% url 'login' %}" class="btn btn-primary mt-5">Kembali ke Masuk</a>
+        </div>
+    {% else %}
+        <form method="post" class="card p-6 space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+                <div>
+                    <label class="label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <p class="text-rose-600 text-xs mt-1">{{ field.errors.0 }}</p>
+                    {% endif %}
+                    {% if field.help_text %}
+                        <p class="text-xs text-slate-400 mt-1">{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-full py-2.5">Daftar</button>
+        </form>
+        <p class="text-center text-xs text-slate-400 mt-6">Sudah punya akun? <a href="{% url 'login' %}" class="text-indigo-600 hover:text-indigo-500 font-medium">Masuk</a></p>
+    {% endif %}
+</div>
+{% endblock %}

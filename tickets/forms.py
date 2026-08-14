@@ -155,6 +155,47 @@ class UserEditForm(forms.ModelForm):
         return user
 
 
+class RegistrationForm(forms.Form):
+    """Form pendaftaran mandiri; akun dibuat nonaktif sampai disetujui admin."""
+    username = forms.CharField(label='Username', max_length=150, widget=forms.TextInput(attrs={'class': INPUT_CLASS}))
+    first_name = forms.CharField(label='Nama Lengkap', max_length=150, widget=forms.TextInput(attrs={'class': INPUT_CLASS}))
+    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'class': INPUT_CLASS}))
+    company = forms.ModelChoiceField(
+        label='Company',
+        queryset=Company.objects.all(),
+        widget=forms.Select(attrs={'class': SELECT_CLASS}),
+    )
+    password1 = forms.CharField(
+        label='Password',
+        widget=forms.PasswordInput(attrs={'class': INPUT_CLASS}),
+        min_length=8,
+        help_text='Minimal 8 karakter.',
+    )
+    password2 = forms.CharField(
+        label='Konfirmasi Password',
+        widget=forms.PasswordInput(attrs={'class': INPUT_CLASS}),
+    )
+
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError('Username sudah dipakai.')
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('Email sudah terdaftar.')
+        return email
+
+    def clean_password2(self):
+        p1 = self.cleaned_data.get('password1')
+        p2 = self.cleaned_data.get('password2')
+        if p1 and p2 and p1 != p2:
+            raise forms.ValidationError('Password tidak cocok.')
+        return p2
+
+
 class ArticleForm(forms.ModelForm):
     class Meta:
         model = Article

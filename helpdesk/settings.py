@@ -69,6 +69,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'tickets.context_processors.unread_notifications',
                 'tickets.context_processors.user_is_admin',
+                'tickets.context_processors.site_settings',
             ],
         },
     },
@@ -166,6 +167,9 @@ EMAIL_TIMEOUT = 15
 
 # URL publik untuk link di email (sesuaikan untuk produksi)
 SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000')
+
+# Registrasi mandiri (False = tutup pendaftaran)
+REGISTRATION_OPEN = env_bool('REGISTRATION_OPEN', True)
 
 
 # Logging

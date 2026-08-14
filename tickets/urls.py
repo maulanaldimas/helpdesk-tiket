@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.ticket_list, name='ticket_list'),
+    path('register/', views.register, name='register'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('ticket/<int:pk>/', views.ticket_detail, name='ticket_detail'),
     path('ticket/new/', views.ticket_create, name='ticket_create'),
@@ -24,6 +25,9 @@ urlpatterns = [
 
     # Manajemen user & role
     path('users/', views.user_list, name='user_list'),
+    path('users/pending/', views.pending_approvals, name='pending_approvals'),
+    path('users/pending/<int:pk>/approve/', views.approve_user, name='approve_user'),
+    path('users/pending/<int:pk>/reject/', views.reject_user, name='reject_user'),
     path('users/new/', views.user_create, name='user_create'),
     path('users/<int:pk>/edit/', views.user_edit, name='user_edit'),
     path('users/<int:pk>/delete/', views.user_delete, name='user_delete'),

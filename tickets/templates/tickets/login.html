@@ -31,6 +31,11 @@
         <button type="submit" class="btn btn-primary w-full py-2.5">Masuk</button>
     </form>
 
-    <p class="text-center text-xs text-slate-400 mt-6">Butuh bantuan? Hubungi tim IT.</p>
+    <p class="text-center text-xs text-slate-400 mt-6">
+        {% if registration_open %}
+            Belum punya akun? <a href="{% url 'register' %}" class="text-indigo-600 hover:text-indigo-500 font-medium">Daftar di sini</a> ·
+        {% endif %}
+        Butuh bantuan? Hubungi tim IT.
+    </p>
 </div>
 {% endblock %}

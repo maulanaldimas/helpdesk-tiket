@@ -27,6 +27,7 @@ from .forms import (
     CategoryForm,
     CommentForm,
     CompanyForm,
+    RegistrationForm,
     TicketForm,
     UserCreateForm,
     UserEditForm,
@@ -58,6 +59,13 @@ def notify(user, ticket, message):
     if not user:
         return
     Notification.objects.create(user=user, ticket=ticket, message=message)
+
+
+def notify_system(users, message):
+    """Kirim notifikasi in-app tanpa keterkaitan tiket (mis. persetujuan akun)."""
+    for user in users:
+        if user:
+            notify(user, None, message)
 
 
 def notify_many(users, ticket, message):
@@ -605,6 +613,79 @@ def user_delete(request, pk):
         user.delete()
         messages.success(request, f"User '{username}' berhasil dihapus.")
     return redirect('user_list')
+
+
+def register(request):
+    """Registrasi mandiri: akun dibuat nonaktif sampai disetujui admin."""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    if not settings.REGISTRATION_OPEN:
+        return render(request, 'tickets/register.html', {'registration_closed': True})
+
+    if request.method == 'POST':
+        form = RegistrationForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            user = User.objects.create_user(
+                username=data['username'],
+                email=data['email'],
+                password=data['password1'],
+                first_name=data['first_name'],
+                is_active=False,
+            )
+            Profile.objects.update_or_create(user=user, defaults={
+                'company': data['company'],
+                'role': 'requester',
+                'pending_approval': True,
+            })
+            admins = User.objects.filter(is_superuser=True) | User.objects.filter(profile__role='admin')
+            notify_system(admins.distinct(), f"Registrasi baru menunggu persetujuan: {user.username}")
+            logger.info("Registrasi baru: %s (menunggu persetujuan)", user.username)
+            return render(request, 'tickets/register.html', {'registered': True})
+    else:
+        form = RegistrationForm()
+
+    return render(request, 'tickets/register.html', {'form': form})
+
+
+@login_required
+def pending_approvals(request):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    pending = User.objects.filter(profile__pending_approval=True).select_related('profile', 'profile__company')
+    return render(request, 'tickets/pending_approvals.html', {'pending': pending})
+
+
+@login_required
+def approve_user(request, pk):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    user = get_object_or_404(User, pk=pk)
+    if request.method == 'POST':
+        profile, _ = Profile.objects.get_or_create(user=user)
+        profile.pending_approval = False
+        profile.save()
+        user.is_active = True
+        user.save()
+        notify_system([user], f"Akun kamu ({user.username}) telah disetujui. Silakan masuk.")
+        messages.success(request, f"Akun '{user.username}' disetujui dan aktif.")
+    return redirect('pending_approvals')
+
+
+@login_required
+def reject_user(request, pk):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    user = get_object_or_404(User, pk=pk)
+    if request.method == 'POST':
+        username = user.username
+        user.delete()
+        messages.success(request, f"Permintaan '{username}' ditolak dan dihapus.")
+    return redirect('pending_approvals')
 
 
 @login_required

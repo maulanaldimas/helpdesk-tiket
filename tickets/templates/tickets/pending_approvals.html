@@ -1,0 +1,39 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Persetujuan Akun{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">Persetujuan Akun</h1>
+    <p class="page-sub">Calon pengguna yang mendaftar mandiri menunggu persetujuan Anda.</p>
+</div>
+
+<div class="card overflow-hidden">
+    <div class="divide-y divide-slate-100">
+        {% for user in pending %}
+        <div class="flex items-center justify-between gap-4 p-4">
+            <div class="flex items-center gap-3 min-w-0">
+                <span class="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-display font-bold text-sm shrink-0">{{ user.username|first|upper }}</span>
+                <div class="min-w-0">
+                    <p class="font-medium text-slate-900 truncate">{{ user.first_name|default:user.username }}</p>
+                    <p class="text-xs text-slate-400">@{{ user.username }} · {{ user.email }} · {{ user.profile.company.name }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <form action="{% url 'approve_user' user.pk %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary">Setujui</button>
+                </form>
+                <form action="{% url 'reject_user' user.pk %}" method="post"
+                      onsubmit="return confirm('Tolak dan hapus pendaftaran {{ user.username }}?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Tolak</button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <div class="p-12 text-center text-sm text-slate-400">Tidak ada pendaftaran yang menunggu persetujuan.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

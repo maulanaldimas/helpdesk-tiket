@@ -99,6 +99,10 @@
                     </summary>
                     <div class="absolute left-0 mt-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 text-sm text-slate-700">
                         <a href="{% url 'user_list' %}" class="block px-4 py-2 hover:bg-slate-50">Users</a>
+                        <a href="{% url 'pending_approvals' %}" class="flex items-center justify-between px-4 py-2 hover:bg-slate-50">
+                            Persetujuan
+                            {% if pending_approval_count > 0 %}<span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-mono font-semibold flex items-center justify-center">{{ pending_approval_count }}</span>{% endif %}
+                        </a>
                         <a href="{% url 'company_list' %}" class="block px-4 py-2 hover:bg-slate-50">Company</a>
                         <a href="{% url 'category_list' %}" class="block px-4 py-2 hover:bg-slate-50">Kategori</a>
                         <div class="border-t border-slate-100 my-1"></div>
@@ -155,6 +159,10 @@
             {% if user_is_admin %}
             <div class="pt-1 border-t border-slate-100">
                 <a href="{% url 'user_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Users</a>
+                <a href="{% url 'pending_approvals' %}" class="flex items-center justify-between px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">
+                    Persetujuan
+                    {% if pending_approval_count > 0 %}<span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-mono font-semibold flex items-center justify-center">{{ pending_approval_count }}</span>{% endif %}
+                </a>
                 <a href="{% url 'company_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Company</a>
                 <a href="{% url 'category_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Kategori</a>
                 <a href="{% url 'article_create' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Tulis Artikel</a>
