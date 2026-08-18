@@ -18,6 +18,8 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import User
 from django.contrib.auth import update_session_auth_hash
 from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, ExpressionWrapper, DurationField, F, Q
 from django.http import FileResponse, HttpResponse
@@ -37,7 +39,7 @@ from .forms import (
     UserCreateForm,
     UserEditForm,
 )
-from .models import Activity, AppSettings, Article, Category, Company, Notification, Profile, Ticket, TicketAttachment
+from .models import Activity, AppSettings, Article, Category, CannedResponse, Company, Notification, Profile, Ticket, TicketAttachment
 
 logger = logging.getLogger('tickets')
 
@@ -76,24 +78,44 @@ def notify_system(users, message):
 def notify_many(users, ticket, message):
     """Kirim notifikasi in-app ke setiap user, tapi email cuma sekali per alamat unik."""
     sent_emails = set()
+    ctx = {
+        'message': message,
+        'ticket': ticket,
+        'action_url': f"{settings.SITE_URL}/ticket/{ticket.id}/",
+        'action_label': 'Lihat Tiket',
+        'site_name': 'Helpdesk',
+        'site_url': settings.SITE_URL,
+        'footer_text': 'Ini email notifikasi otomatis dari helpdesk.',
+    }
+    subject = f'[Helpdesk] {message}'
+    text_body = (
+        f'{message}\n\n'
+        f'Tiket: #{ticket.id} - {ticket.title}\n'
+        f'Company: {ticket.company.name}\n'
+        f'Status: {ticket.get_status_display()}\n\n'
+        f'Buka: {settings.SITE_URL}/ticket/{ticket.id}/'
+    )
+    try:
+        html_body = render_to_string('emails/notification.html', ctx)
+    except Exception:
+        html_body = None
     for user in users:
         if not user:
             continue
         notify(user, ticket, message)
         if user.email and user.email not in sent_emails:
-            send_mail(
-                subject=f'[Helpdesk] {message}',
-                message=(
-                    f'{message}\n\n'
-                    f'Tiket: #{ticket.id} - {ticket.title}\n'
-                    f'Company: {ticket.company.name}\n'
-                    f'Status: {ticket.get_status_display()}\n\n'
-                    f'Buka: {settings.SITE_URL}/ticket/{ticket.id}/'
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=True,
-            )
+            try:
+                msg = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[user.email],
+                )
+                if html_body:
+                    msg.attach_alternative(html_body, 'text/html')
+                msg.send(fail_silently=True)
+            except Exception:
+                pass
             sent_emails.add(user.email)
 
 
@@ -159,6 +181,7 @@ def ticket_list(request):
     return render(request, 'tickets/ticket_list.html', {
         'tickets': page_obj,
         'query': query,
+        'breadcrumbs': [{'label': 'Daftar Tiket'}],
     })
 
 
@@ -226,11 +249,15 @@ def ticket_detail(request, pk):
     attachments = ticket.attachments.order_by('-uploaded_at')
 
     staff_users = []
+    canned_responses = []
     if can_manage:
         staff_users = User.objects.filter(
             profile__role__in=['staff', 'admin'],
             profile__company=ticket.company,
         )
+        canned_responses = CannedResponse.objects.filter(
+            Q(company=ticket.company) | Q(company__isnull=True)
+        ).select_related('category')
 
     return render(request, 'tickets/ticket_detail.html', {
         'ticket': ticket,
@@ -240,6 +267,11 @@ def ticket_detail(request, pk):
         'comment_form': comment_form,
         'can_manage': can_manage,
         'staff_users': staff_users,
+        'canned_responses': canned_responses,
+        'breadcrumbs': [
+            {'label': 'Tiket', 'url': '/'},
+            {'label': f'#{ticket.id}'},
+        ],
     })
 
 
@@ -384,6 +416,7 @@ def my_dashboard(request):
         'overdue_count': overdue_count,
         'resolved_count': resolved_count,
         'recent': recent,
+        'breadcrumbs': [{'label': 'Ringkasan Saya'}],
     })
 
 
@@ -391,7 +424,11 @@ def my_dashboard(request):
 def notification_list(request):
     notifications = request.user.notifications.all().order_by('-created_at')
     notifications.filter(is_read=False).update(is_read=True)
-    return render(request, 'tickets/notification_list.html', {'notifications': notifications})
+
+    paginator = Paginator(notifications, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'tickets/notification_list.html', {'notifications': page_obj})
 
 
 # ---------------------------------------------------------------------------
@@ -628,6 +665,7 @@ def dashboard(request):
         'trend_counts': trend_counts,
         'staff_workload': staff_workload,
         'recent_tickets': recent_tickets,
+        'breadcrumbs': [{'label': 'Dashboard'}],
     })
 
 
@@ -1033,3 +1071,106 @@ def article_delete(request, pk):
         article.delete()
         messages.success(request, 'Artikel berhasil dihapus.')
     return redirect('article_list')
+
+
+# ---------------------------------------------------------------------------
+# Activity Log (audit trail)
+# ---------------------------------------------------------------------------
+
+@login_required
+def activity_log(request):
+    """Halaman audit trail terpusat — superuser lihat semua, admin/staff lihat company sendiri."""
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    activities = Activity.objects.select_related('ticket', 'user', 'ticket__company').order_by('-created_at')
+    if not request.user.is_superuser:
+        activities = activities.filter(ticket__company=request.user.profile.company)
+
+    action_filter = request.GET.get('action', '')
+    if action_filter:
+        activities = activities.filter(action=action_filter)
+
+    paginator = Paginator(activities, 30)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'tickets/activity_log.html', {
+        'activities': page_obj,
+        'action_filter': action_filter,
+        'action_choices': Activity.ACTION_CHOICES,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Canned Responses (jawaban template)
+# ---------------------------------------------------------------------------
+
+@login_required
+def canned_response_list(request):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    profile = request.user.profile
+    if request.user.is_superuser:
+        responses = CannedResponse.objects.select_related('category', 'company').all()
+    else:
+        responses = CannedResponse.objects.select_related('category', 'company').filter(
+            Q(company=profile.company) | Q(company__isnull=True)
+        )
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        content = request.POST.get('content', '').strip()
+        category_id = request.POST.get('category', '')
+        company_id = request.POST.get('company', '')
+        if not title or not content:
+            messages.error(request, 'Judul dan isi wajib diisi.')
+        else:
+            CannedResponse.objects.create(
+                title=title,
+                content=content,
+                category_id=category_id or None,
+                company_id=company_id or None,
+                created_by=request.user,
+            )
+            messages.success(request, 'Template jawaban berhasil dibuat.')
+            return redirect('canned_response_list')
+
+    return render(request, 'tickets/canned_response_list.html', {
+        'responses': responses,
+        'categories': Category.objects.all(),
+        'companies': Company.objects.all(),
+    })
+
+
+@login_required
+def canned_response_edit(request, pk):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    response = get_object_or_404(CannedResponse, pk=pk)
+    if request.method == 'POST':
+        response.title = request.POST.get('title', response.title).strip()
+        response.content = request.POST.get('content', response.content).strip()
+        response.category_id = request.POST.get('category') or None
+        response.company_id = request.POST.get('company') or None
+        response.save()
+        messages.success(request, 'Template berhasil diupdate.')
+        return redirect('canned_response_list')
+
+    return render(request, 'tickets/canned_response_form.html', {
+        'response': response,
+        'categories': Category.objects.all(),
+        'companies': Company.objects.all(),
+    })
+
+
+@login_required
+def canned_response_delete(request, pk):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        CannedResponse.objects.filter(pk=pk).delete()
+        messages.success(request, 'Template berhasil dihapus.')
+    return redirect('canned_response_list')

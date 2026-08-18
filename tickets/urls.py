@@ -47,4 +47,12 @@ urlpatterns = [
     path('kb/new/', views.article_create, name='article_create'),
     path('kb/<int:pk>/edit/', views.article_edit, name='article_edit'),
     path('kb/<int:pk>/delete/', views.article_delete, name='article_delete'),
+
+    # Activity log
+    path('activity/', views.activity_log, name='activity_log'),
+
+    # Canned responses
+    path('templates/', views.canned_response_list, name='canned_response_list'),
+    path('templates/<int:pk>/edit/', views.canned_response_edit, name='canned_response_edit'),
+    path('templates/<int:pk>/delete/', views.canned_response_delete, name='canned_response_delete'),
 ]

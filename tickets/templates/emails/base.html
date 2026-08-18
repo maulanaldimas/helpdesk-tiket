@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 16px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
+                    <tr>
+                        <td style="background-color:{{ primary_color|default:'#4f46e5' }};padding:24px 32px;text-align:center;">
+                            {% if site_logo_url %}
+                            <img src="{{ site_logo_url }}" alt="{{ site_name }}" style="height:40px;margin-bottom:8px;display:inline-block;">
+                            {% endif %}
+                            <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:600;letter-spacing:-0.01em;">{{ site_name|default:'Helpdesk' }}</h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;">
+                            {% block preheader %}{% endblock %}
+                            <h2 style="margin:0 0 8px 0;color:#0f172a;font-size:20px;font-weight:700;letter-spacing:-0.02em;">{{ title }}</h2>
+                            <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;line-height:1.6;">{{ subtitle }}</p>
+
+                            {% block body %}{% endblock %}
+
+                            {% if ticket %}
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin:24px 0;">
+                                <tr>
+                                    <td style="padding:16px;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td style="padding:4px 0;color:#64748b;font-size:13px;width:100px;">Tiket</td>
+                                                <td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:600;">#{{ ticket.id }} — {{ ticket.title }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:4px 0;color:#64748b;font-size:13px;">Company</td>
+                                                <td style="padding:4px 0;color:#0f172a;font-size:13px;">{{ ticket.company.name }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:4px 0;color:#64748b;font-size:13px;">Status</td>
+                                                <td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:600;">{{ ticket.get_status_display }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:4px 0;color:#64748b;font-size:13px;">Prioritas</td>
+                                                <td style="padding:4px 0;color:#0f172a;font-size:13px;">{{ ticket.get_priority_display }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            {% if action_url %}
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ action_url }}" style="display:inline-block;background-color:{{ primary_color|default:'#4f46e5' }};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 32px;border-radius:8px;">{{ action_label|default:'Lihat Detail' }}</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            {% block extra %}{% endblock %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 32px 24px 32px;border-top:1px solid #e2e8f0;">
+                            <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;line-height:1.6;">
+                                {{ footer_text|default:'Ini email notifikasi otomatis dari helpdesk.' }}<br>
+                                <a href="{{ site_url }}" style="color:#6366f1;text-decoration:none;">{{ site_name|default:'Helpdesk' }}</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

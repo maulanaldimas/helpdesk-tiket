@@ -263,3 +263,20 @@ class Article(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class CannedResponse(models.Model):
+    """Jawaban template untuk staff agar respons lebih cepat."""
+    title = models.CharField(max_length=100, help_text='Nama singkat untuk judul template.')
+    content = models.TextField(help_text='Isi jawaban template. Gunakan {ticket_id} dan {requester} sebagai placeholder.')
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, help_text='Kategori tiket yang cocok.')
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True, help_text='Kosongkan untuk template global.')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='canned_responses')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['title']
+
+    def __str__(self):
+        return self.title

@@ -1,0 +1,79 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Template Jawaban{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="page-title">Template Jawaban</h1>
+        <p class="page-sub">Jawaban siap pakai untuk merespons tiket lebih cepat.</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 card divide-y divide-slate-100">
+        {% for resp in responses %}
+            <div class="p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="font-medium text-slate-900 text-sm">{{ resp.title }}</p>
+                        <p class="text-xs text-slate-500 mt-0.5 line-clamp-2">{{ resp.content|truncatewords:20 }}</p>
+                        <div class="flex items-center gap-2 mt-1.5 text-xs text-slate-400">
+                            {% if resp.category %}<span class="px-2 py-0.5 rounded-full bg-slate-100">{{ resp.category.name }}</span>{% endif %}
+                            {% if resp.company %}<span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">{{ resp.company.name }}</span>{% else %}<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">Global</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <a href="{% url 'canned_response_edit' resp.pk %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">Edit</a>
+                        <form method="post" action="{% url 'canned_response_delete' resp.pk %}" class="inline"
+                              onsubmit="return confirm('Hapus template {{ resp.title }}?')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-xs font-medium text-rose-600 hover:text-rose-700">Hapus</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="p-12 text-center text-sm text-slate-400">Belum ada template jawaban.</div>
+        {% endfor %}
+    </div>
+
+    <div class="card p-5 h-fit">
+        <h2 class="font-display font-semibold text-slate-900 mb-3 text-sm">Tambah Template</h2>
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="label">Judul</label>
+                <input type="text" name="title" required maxlength="100" placeholder="Cth: Reset Password" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+            </div>
+            <div>
+                <label class="label">Isi Jawaban</label>
+                <textarea name="content" rows="5" required placeholder="Gunakan {ticket_id} dan {requester} sebagai placeholder..."
+                          class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"></textarea>
+                <p class="text-xs text-slate-400 mt-1">Placeholder: {ticket_id}, {requester}</p>
+            </div>
+            <div>
+                <label class="label">Kategori (opsional)</label>
+                <select name="category" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">— Semua —</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if request.user.is_superuser %}
+            <div>
+                <label class="label">Company (opsional)</label>
+                <select name="company" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">— Global —</option>
+                    {% for c in companies %}
+                        <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary w-full">Tambah</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

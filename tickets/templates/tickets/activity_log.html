@@ -1,0 +1,78 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Log Aktivitas{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">Log Aktivitas</h1>
+    <p class="page-sub">Riwayat semua aktivitas pada tiket.</p>
+</div>
+
+<form method="get" class="mb-4 flex items-center gap-2">
+    <select name="action" class="w-auto">
+        <option value="">Semua Aksi</option>
+        {% for value, label in action_choices %}
+            <option value="{{ value }}" {% if action_filter == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Filter</button>
+    {% if action_filter %}
+        <a href="{% url 'activity_log' %}" class="text-sm text-slate-500 hover:text-slate-900">Reset</a>
+    {% endif %}
+</form>
+
+<div class="card divide-y divide-slate-100 overflow-hidden">
+    {% for act in activities %}
+        <div class="flex items-start gap-3 p-4">
+            <span class="mt-1.5 w-2.5 h-2.5 rounded-full shrink-0
+                {% if act.action == 'created' %}bg-indigo-500
+                {% elif act.action == 'status' %}bg-slate-400
+                {% elif act.action == 'comment' %}bg-sky-500
+                {% elif act.action == 'assign' or act.action == 'unassign' %}bg-amber-400
+                {% else %}bg-emerald-500{% endif %}"></span>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm text-slate-700">
+                    {% if act.user %}<span class="font-medium text-slate-900">{{ act.user.username }}</span>{% else %}Sistem{% endif %}
+                    {{ act.get_action_display|lower }}
+                    {% if act.detail %}<span class="text-slate-500">— {{ act.detail }}</span>{% endif %}
+                </p>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    <a href="{% url 'ticket_detail' act.ticket.pk %}" class="font-mono hover:text-indigo-600 transition">#{{ act.ticket.id }}</a>
+                    <span class="text-slate-300 mx-1">·</span>
+                    <span class="font-mono">{{ act.created_at|date:"d M Y H:i" }}</span>
+                    {% if act.ticket.company %}
+                        <span class="text-slate-300 mx-1">·</span>
+                        {{ act.ticket.company.name }}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    {% empty %}
+        <div class="p-12 text-center text-sm text-slate-400">Belum ada aktivitas.</div>
+    {% endfor %}
+</div>
+
+{% if activities.paginator.num_pages > 1 %}
+<div class="flex items-center justify-between mt-4 text-sm">
+    <p class="text-slate-400">Halaman {{ activities.number }} dari {{ activities.paginator.num_pages }}</p>
+    <div class="flex gap-1">
+        {% if activities.has_previous %}
+            <a href="?page={{ activities.previous_page_number }}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&larr;</a>
+        {% endif %}
+        {% for num in activities.paginator.page_range %}
+            {% if num == activities.number %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-mono">{{ num }}</span>
+            {% elif num > activities.number|add:"-3" and num < activities.number|add:"3" %}
+                <a href="?page={{ num }}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-mono">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if activities.has_next %}
+            <a href="?page={{ activities.next_page_number }}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&rarr;</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

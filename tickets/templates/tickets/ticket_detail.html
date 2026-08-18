@@ -3,6 +3,8 @@
 {% block title %}Tiket #{{ ticket.id }}{% endblock %}
 
 {% block content %}
+{% include 'tickets/breadcrumbs.html' %}
+
 <a href="{% url 'ticket_list' %}" class="text-sm text-slate-500 hover:text-slate-900 transition inline-flex items-center gap-1">
     ← Kembali
 </a>
@@ -102,10 +104,38 @@
 
         <form method="post" class="space-y-3" enctype="multipart/form-data">
             {% csrf_token %}
+            {% if can_manage and canned_responses %}
+            <div>
+                <label class="label text-xs">Gunakan Template Jawaban</label>
+                <select id="canned-select" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">— Pilih template (opsional) —</option>
+                    {% for resp in canned_responses %}
+                        <option value="{{ resp.content|escape }}">{{ resp.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
             {{ comment_form.message }}
             {{ comment_form.files }}
             <button type="submit" name="comment_submit" class="btn btn-primary">Kirim Komentar</button>
         </form>
+
+        {% if can_manage and canned_responses %}
+        <script>
+        (function() {
+            var select = document.getElementById('canned-select');
+            var textarea = document.getElementById('id_message');
+            if (!select || !textarea) return;
+            select.addEventListener('change', function() {
+                if (this.value) {
+                    textarea.value = this.value.replace(/\{ticket_id\}/g, '{{ ticket.id }}').replace(/\{requester\}/g, '{{ ticket.created_by.username }}');
+                    textarea.focus();
+                    this.value = '';
+                }
+            });
+        })();
+        </script>
+        {% endif %}
     </div>
 
     <div class="card p-6">

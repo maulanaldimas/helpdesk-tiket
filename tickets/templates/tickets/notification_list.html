@@ -26,4 +26,28 @@
         <div class="p-12 text-center text-sm text-slate-400">Belum ada notifikasi.</div>
     {% endfor %}
 </div>
+
+{% if notifications.paginator.num_pages > 1 %}
+<div class="flex items-center justify-between mt-4 text-sm">
+    <p class="text-slate-400">Halaman {{ notifications.number }} dari {{ notifications.paginator.num_pages }}</p>
+    <div class="flex gap-1">
+        {% if notifications.has_previous %}
+            <a href="?page={{ notifications.previous_page_number }}"
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&larr;</a>
+        {% endif %}
+        {% for num in notifications.paginator.page_range %}
+            {% if num == notifications.number %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-mono">{{ num }}</span>
+            {% elif num > notifications.number|add:"-3" and num < notifications.number|add:"3" %}
+                <a href="?page={{ num }}"
+                   class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-mono">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if notifications.has_next %}
+            <a href="?page={{ notifications.next_page_number }}"
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&rarr;</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}

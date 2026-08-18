@@ -60,10 +60,20 @@
     <p class="text-slate-400">Halaman {{ articles.number }} dari {{ articles.paginator.num_pages }}</p>
     <div class="flex gap-1">
         {% if articles.has_previous %}
-            <a href="?page={{ articles.previous_page_number }}" class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">←</a>
+            <a href="?page={{ articles.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&larr;</a>
         {% endif %}
+        {% for num in articles.paginator.page_range %}
+            {% if num == articles.number %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-mono">{{ num }}</span>
+            {% elif num > articles.number|add:"-3" and num < articles.number|add:"3" %}
+                <a href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-mono">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
         {% if articles.has_next %}
-            <a href="?page={{ articles.next_page_number }}" class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">→</a>
+            <a href="?page={{ articles.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&rarr;</a>
         {% endif %}
     </div>
 </div>

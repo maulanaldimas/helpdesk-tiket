@@ -1,0 +1,51 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Edit Template: {{ response.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="page-title">Edit Template</h1>
+        <p class="page-sub">Perbarui template jawaban "{{ response.title }}".</p>
+    </div>
+
+    <form method="post" class="card p-6 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="label">Judul</label>
+            <input type="text" name="title" value="{{ response.title }}" required maxlength="100"
+                   class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+        </div>
+        <div>
+            <label class="label">Isi Jawaban</label>
+            <textarea name="content" rows="8" required
+                      class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">{{ response.content }}</textarea>
+            <p class="text-xs text-slate-400 mt-1">Placeholder: {ticket_id}, {requester}</p>
+        </div>
+        <div>
+            <label class="label">Kategori (opsional)</label>
+            <select name="category" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <option value="">— Semua —</option>
+                {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if response.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if request.user.is_superuser %}
+        <div>
+            <label class="label">Company (opsional)</label>
+            <select name="company" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <option value="">— Global —</option>
+                {% for c in companies %}
+                    <option value="{{ c.id }}" {% if response.company_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="flex gap-2 pt-2">
+            <button type="submit" class="btn btn-primary">Simpan</button>
+            <a href="{% url 'canned_response_list' %}" class="btn btn-secondary">Batal</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
