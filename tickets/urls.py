@@ -7,6 +7,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard/saya/', views.my_dashboard, name='my_dashboard'),
     path('ticket/<int:pk>/', views.ticket_detail, name='ticket_detail'),
+    path('ticket/<int:pk>/merge/', views.ticket_merge, name='ticket_merge'),
     path('ticket/new/', views.ticket_create, name='ticket_create'),
     path('tickets/import/', views.import_tickets, name='import_tickets'),
     path('tickets/import/template/', views.import_template, name='import_template'),

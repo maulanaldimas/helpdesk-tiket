@@ -1,0 +1,50 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Gabungkan Tiket #{{ ticket.id }}{% endblock %}
+
+{% block content %}
+{% include 'tickets/breadcrumbs.html' %}
+
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="page-title">Gabungkan Tiket</h1>
+        <p class="page-sub">Pindahkan semua komentar, lampiran, dan aktivitas dari tiket ini ke tiket lain.</p>
+    </div>
+
+    <div class="card border-l-4 {{ ticket.priority_border_class }} p-5 mb-4">
+        <p class="font-mono text-sm text-slate-400">#{{ ticket.id }}</p>
+        <h2 class="font-display font-semibold text-slate-900">{{ ticket.title }}</h2>
+        <p class="text-sm text-slate-500 mt-1">{{ ticket.company.name }} · {{ ticket.get_status_display }} · {{ ticket.get_priority_display }}</p>
+    </div>
+
+    <form method="post" class="card p-6 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="label">Gabungkan ke tiket ini:</label>
+            <select name="target_ticket" required class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <option value="">— Pilih tiket tujuan —</option>
+                {% for t in candidates %}
+                    <option value="{{ t.id }}">
+                        #{{ t.id }} — {{ t.title }} ({{ t.get_status_display }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+            <p class="font-medium mb-1">Yang akan dipindahkan:</p>
+            <ul class="list-disc ml-5 space-y-0.5">
+                <li>Semua komentar</li>
+                <li>Semua lampiran file</li>
+                <li>Semua riwayat aktivitas</li>
+            </ul>
+            <p class="mt-2 font-medium">Tiket #{{ ticket.id }} akan ditutup otomatis.</p>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Yakin ingin menggabungkan tiket ini?')">Gabungkan</button>
+            <a href="{% url 'ticket_detail' ticket.pk %}" class="btn btn-secondary">Batal</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

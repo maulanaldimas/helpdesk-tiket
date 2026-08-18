@@ -68,18 +68,19 @@
         {% endif %}
     </div>
 
-    {% if can_manage %}
-    <form method="post" class="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
-        {% csrf_token %}
-        <select name="assigned_to" class="w-auto">
-            <option value="">— Unassign —</option>
-            {% for staff in staff_users %}
-                <option value="{{ staff.id }}" {% if ticket.assigned_to_id == staff.id %}selected{% endif %}>{{ staff.username }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" name="assign_submit" class="btn btn-primary">Assign</button>
-    </form>
-    {% endif %}
+        {% if can_manage %}
+        <form method="post" class="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
+            {% csrf_token %}
+            <select name="assigned_to" class="w-auto">
+                <option value="">— Unassign —</option>
+                {% for staff in staff_users %}
+                    <option value="{{ staff.id }}" {% if ticket.assigned_to_id == staff.id %}selected{% endif %}>{{ staff.username }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" name="assign_submit" class="btn btn-primary">Assign</button>
+            <a href="{% url 'ticket_merge' ticket.pk %}" class="btn btn-secondary">Gabungkan</a>
+        </form>
+        {% endif %}
 
     <p class="text-xs text-slate-400 mt-4">Dibuat oleh {{ ticket.created_by.username }} · {{ ticket.created_at }}</p>
 </div>

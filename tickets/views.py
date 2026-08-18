@@ -18,8 +18,6 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import User
 from django.contrib.auth import update_session_auth_hash
 from django.core.mail import send_mail
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, ExpressionWrapper, DurationField, F, Q
 from django.http import FileResponse, HttpResponse
@@ -39,7 +37,8 @@ from .forms import (
     UserCreateForm,
     UserEditForm,
 )
-from .models import Activity, AppSettings, Article, Category, CannedResponse, Company, Notification, Profile, Ticket, TicketAttachment
+from .models import Activity, AppSettings, Article, Category, CannedResponse, Comment, Company, Notification, Profile, Ticket, TicketAttachment
+from .tasks import send_notification_email
 
 logger = logging.getLogger('tickets')
 
@@ -78,15 +77,6 @@ def notify_system(users, message):
 def notify_many(users, ticket, message):
     """Kirim notifikasi in-app ke setiap user, tapi email cuma sekali per alamat unik."""
     sent_emails = set()
-    ctx = {
-        'message': message,
-        'ticket': ticket,
-        'action_url': f"{settings.SITE_URL}/ticket/{ticket.id}/",
-        'action_label': 'Lihat Tiket',
-        'site_name': 'Helpdesk',
-        'site_url': settings.SITE_URL,
-        'footer_text': 'Ini email notifikasi otomatis dari helpdesk.',
-    }
     subject = f'[Helpdesk] {message}'
     text_body = (
         f'{message}\n\n'
@@ -95,28 +85,50 @@ def notify_many(users, ticket, message):
         f'Status: {ticket.get_status_display()}\n\n'
         f'Buka: {settings.SITE_URL}/ticket/{ticket.id}/'
     )
-    try:
-        html_body = render_to_string('emails/notification.html', ctx)
-    except Exception:
-        html_body = None
+    emails_to_send = []
     for user in users:
         if not user:
             continue
         notify(user, ticket, message)
         if user.email and user.email not in sent_emails:
-            try:
-                msg = EmailMultiAlternatives(
-                    subject=subject,
-                    body=text_body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=[user.email],
-                )
-                if html_body:
-                    msg.attach_alternative(html_body, 'text/html')
-                msg.send(fail_silently=True)
-            except Exception:
-                pass
+            emails_to_send.append(user.email)
             sent_emails.add(user.email)
+
+    if not emails_to_send:
+        return
+
+    _use_celery = False
+    try:
+        import redis as _redis_mod
+        broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
+        if broker_url:
+            r = _redis_mod.from_url(broker_url, socket_connect_timeout=2)
+            r.ping()
+            _use_celery = True
+    except Exception:
+        pass
+
+    if _use_celery:
+        try:
+            from .tasks import send_notification_email
+            send_notification_email.delay(
+                subject=subject,
+                text_body=text_body,
+                recipient_list=emails_to_send,
+                ticket_id=ticket.id,
+                message=message,
+            )
+            return
+        except Exception:
+            pass
+
+    send_mail(
+        subject=subject,
+        message=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=emails_to_send,
+        fail_silently=True,
+    )
 
 
 def log_activity(ticket, user, action, detail=''):
@@ -309,6 +321,52 @@ def ticket_create(request):
     return render(request, 'tickets/ticket_form.html', {
         'form': form,
         'locked_company': locked_company,
+    })
+
+
+@login_required
+def ticket_merge(request, pk):
+    """Gabungkan tiket ini ke tiket lain. Semua komentar, lampiran, aktivitas dipindah."""
+    ticket = get_visible_ticket(request, pk)
+    if not admin_required(request.user):
+        return redirect('ticket_detail', pk=pk)
+
+    company_tickets = get_user_tickets(request).exclude(pk=pk).order_by('-created_at')
+
+    if request.method == 'POST':
+        target_id = request.POST.get('target_ticket')
+        if not target_id:
+            messages.error(request, 'Pilih tiket target untuk digabungkan.')
+            return redirect('ticket_merge', pk=pk)
+        try:
+            target = company_tickets.get(pk=target_id)
+        except Ticket.DoesNotExist:
+            messages.error(request, 'Tiket target tidak ditemukan atau tidak bisa diakses.')
+            return redirect('ticket_merge', pk=pk)
+
+        if target.company_id != ticket.company_id:
+            messages.error(request, 'Tiket harus dari perusahaan yang sama.')
+            return redirect('ticket_merge', pk=pk)
+
+        merge_note = f"[Digabungkan dari tiket #{ticket.id}]"
+
+        Comment.objects.filter(ticket=ticket).update(ticket=target)
+        TicketAttachment.objects.filter(ticket=ticket).update(ticket=target)
+        Activity.objects.filter(ticket=ticket).update(ticket=target)
+
+        Ticket.objects.filter(pk=ticket.pk).update(
+            status='closed',
+            closed_at=timezone.now(),
+            description=F('description') + f'\n\n{merge_note}',
+        )
+
+        log_activity(target, request.user, 'comment', merge_note)
+        messages.success(request, f'Tiket #{ticket.id} berhasil digabungkan ke #{target.id}. Tiket #{ticket.id} ditutup.')
+        return redirect('ticket_detail', pk=target.pk)
+
+    return render(request, 'tickets/ticket_merge.html', {
+        'ticket': ticket,
+        'candidates': company_tickets[:50],
     })
 
 
