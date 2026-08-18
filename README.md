@@ -208,4 +208,4 @@ helpdesk-tiket/
 - [x] Import tiket massal (CSV) & export laporan CSV
 - [ ] Webhook ke Slack/Teams
 - [ ] Autentikasi LDAP/SSO
-- [ ] Multi-tenancy penuh dengan database terpisah
+- [x] Multi-tenancy penuh dengan isolasi data per perusahaan
