@@ -93,7 +93,9 @@ class AccessScopeTests(TestCase):
         self.comp_a = Company.objects.create(name='Company A')
         self.comp_b = Company.objects.create(name='Company B')
         self.category = Category.objects.create(name='Network')
-        self.admin = make_user('admin', 'admin')
+        self.admin = make_user('admin', 'admin', self.comp_a)
+        self.superadmin = User.objects.create_superuser('superadmin', password='pass12345')
+        Profile.objects.get_or_create(user=self.superadmin, defaults={'company': self.comp_a, 'role': 'admin'})
         self.staff_a = make_user('staff_a', 'staff', self.comp_a)
         self.staff_b = make_user('staff_b', 'staff', self.comp_b)
         self.requester_a = make_user('req_a', 'requester', self.comp_a)
@@ -108,8 +110,13 @@ class AccessScopeTests(TestCase):
         response = self.client.get(reverse('ticket_list'))
         self.assertEqual(response.status_code, 302)
 
-    def test_admin_sees_all_tickets(self):
+    def test_admin_sees_own_company_tickets(self):
         self.login(self.admin)
+        response = self.client.get(reverse('ticket_list'))
+        self.assertEqual(list(response.context['tickets']), [self.ticket_a])
+
+    def test_superadmin_sees_all_tickets(self):
+        self.login(self.superadmin)
         response = self.client.get(reverse('ticket_list'))
         self.assertEqual(list(response.context['tickets']), [self.ticket_b, self.ticket_a])
 
@@ -133,10 +140,10 @@ class AccessScopeTests(TestCase):
         response = self.client.get(reverse('ticket_detail', args=[self.ticket_b.pk]))
         self.assertEqual(response.status_code, 404)
 
-    def test_admin_can_open_any_ticket(self):
+    def test_admin_cannot_open_other_company_ticket(self):
         self.login(self.admin)
         response = self.client.get(reverse('ticket_detail', args=[self.ticket_b.pk]))
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 404)
 
     def test_requester_can_open_own_ticket(self):
         self.login(self.requester_a)
@@ -148,7 +155,7 @@ class TicketFlowTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name='PT Uji')
         self.category = Category.objects.create(name='Hardware')
-        self.admin = make_user('admin', 'admin')
+        self.admin = make_user('admin', 'admin', self.company)
         self.requester = make_user('req', 'requester', self.company)
         self.staff = make_user('staff', 'staff', self.company)
 
@@ -263,16 +270,20 @@ class TicketFlowTests(TestCase):
 class AdminOnlyTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name='PT Uji')
-        self.admin = make_user('admin', 'admin')
+        self.admin = make_user('admin', 'admin', self.company)
+        self.superadmin = User.objects.create_superuser('superadmin', password='pass12345')
+        Profile.objects.get_or_create(user=self.superadmin, defaults={'company': self.company, 'role': 'admin'})
         self.staff = make_user('staff', 'staff', self.company)
 
     def login(self, user):
         self.client.login(username=user.username, password='pass12345')
 
-    def test_company_page_admin_only(self):
+    def test_company_page_superuser_only(self):
         self.login(self.staff)
         self.assertEqual(self.client.get(reverse('company_list')).status_code, 302)
         self.login(self.admin)
+        self.assertEqual(self.client.get(reverse('company_list')).status_code, 302)
+        self.login(self.superadmin)
         self.assertEqual(self.client.get(reverse('company_list')).status_code, 200)
 
     def test_user_pages_admin_only(self):
@@ -304,7 +315,7 @@ class ExportTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name='PT Uji')
         self.category = Category.objects.create(name='Software')
-        self.admin = make_user('admin', 'admin')
+        self.admin = make_user('admin', 'admin', self.company)
         self.requester = make_user('req', 'requester', self.company)
         make_ticket(self.requester, self.company, self.category)
 
@@ -324,7 +335,7 @@ class ExportTests(TestCase):
 class RegistrationTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name='PT Uji')
-        self.admin = make_user('admin', 'admin')
+        self.admin = make_user('admin', 'admin', self.company)
 
     def register(self, username='budi', **overrides):
         data = {
@@ -410,7 +421,7 @@ class MarkdownTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name='PT Uji')
         self.category = Category.objects.create(name='Software')
-        self.admin = make_user('admin', 'admin')
+        self.admin = make_user('admin', 'admin', self.company)
         self.staff = make_user('staff', 'staff', self.company)
 
     def test_content_html_renders_markdown(self):
@@ -462,17 +473,21 @@ class MarkdownTests(TestCase):
 class SettingsTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name='PT Uji')
-        self.admin = make_user('admin', 'admin')
+        self.superadmin = User.objects.create_superuser('superadmin', password='pass12345')
+        Profile.objects.get_or_create(user=self.superadmin, defaults={'company': self.company, 'role': 'admin'})
+        self.admin = make_user('admin', 'admin', self.company)
         self.staff = make_user('staff', 'staff', self.company)
 
-    def test_settings_page_admin_only(self):
+    def test_settings_page_superuser_only(self):
         self.client.login(username='staff', password='pass12345')
         self.assertEqual(self.client.get(reverse('settings_page')).status_code, 302)
         self.client.login(username='admin', password='pass12345')
+        self.assertEqual(self.client.get(reverse('settings_page')).status_code, 302)
+        self.client.login(username='superadmin', password='pass12345')
         self.assertEqual(self.client.get(reverse('settings_page')).status_code, 200)
 
     def test_update_settings(self):
-        self.client.login(username='admin', password='pass12345')
+        self.client.login(username='superadmin', password='pass12345')
         response = self.client.post(reverse('settings_page'), {
             'site_name': 'Helpdesk Baru',
             'tagline': 'Support 24/7',
@@ -488,7 +503,7 @@ class SettingsTests(TestCase):
         import io
         from django.core.files.uploadedfile import SimpleUploadedFile
         from PIL import Image
-        self.client.login(username='admin', password='pass12345')
+        self.client.login(username='superadmin', password='pass12345')
         buf = io.BytesIO()
         Image.new('RGBA', (60, 60), (79, 70, 229, 255)).save(buf, format='PNG')
         img = SimpleUploadedFile('brand.png', buf.getvalue(), content_type='image/png')
@@ -503,7 +518,7 @@ class SettingsTests(TestCase):
         self.assertIn('brand', cfg.logo.name)
 
     def test_invalid_color_rejected(self):
-        self.client.login(username='admin', password='pass12345')
+        self.client.login(username='superadmin', password='pass12345')
         response = self.client.post(reverse('settings_page'), {
             'site_name': 'X',
             'tagline': '',
@@ -702,11 +717,11 @@ class ImportExportTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('ticket_list'))
         self.assertEqual(Ticket.objects.count(), 2)
-        self.assertTrue(Company.objects.filter(name='PT Baru').exists())
         self.assertTrue(Category.objects.filter(name='Hardware').exists())
         t = Ticket.objects.get(title='Laptop rusak')
         self.assertEqual(t.priority, 'high')
         self.assertEqual(t.created_by, self.admin)
+        self.assertEqual(t.company, self.company)
 
     def test_import_skips_invalid_rows(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -718,3 +733,119 @@ class ImportExportTests(TestCase):
             'file': SimpleUploadedFile('data.csv', csv_data, content_type='text/csv'),
         })
         self.assertEqual(Ticket.objects.count(), 1)
+
+
+class TenantIsolationTests(TestCase):
+    """Pastikan data tidak bocor antar perusahaan."""
+
+    def setUp(self):
+        self.company_a = Company.objects.create(name='PT Alpha')
+        self.company_b = Company.objects.create(name='PT Beta')
+        self.admin_a = make_user('admin_a', 'admin', self.company_a)
+        self.admin_b = make_user('admin_b', 'admin', self.company_b)
+        self.staff_a = make_user('staff_a', 'staff', self.company_a)
+        self.staff_b = make_user('staff_b', 'staff', self.company_b)
+        self.requester_a = make_user('req_a', 'requester', self.company_a)
+        self.requester_b = make_user('req_b', 'requester', self.company_b)
+        self.cat = Category.objects.create(name='Umum')
+        self.ticket_a = make_ticket(self.requester_a, self.company_a, self.cat)
+        self.ticket_b = make_ticket(self.requester_b, self.company_b, self.cat)
+
+    def _login(self, username):
+        self.client.login(username=username, password='pass12345')
+
+    # --- Ticket list ---
+    def test_admin_a_does_not_see_ticket_b(self):
+        self._login('admin_a')
+        resp = self.client.get(reverse('ticket_list'))
+        self.assertEqual(resp.context['tickets'].paginator.count, 1)
+        self.assertEqual(resp.context['tickets'][0].pk, self.ticket_a.pk)
+
+    def test_staff_a_does_not_see_ticket_b(self):
+        self._login('staff_a')
+        resp = self.client.get(reverse('ticket_list'))
+        self.assertEqual(resp.context['tickets'].paginator.count, 1)
+
+    def test_requester_a_does_not_see_ticket_b(self):
+        self._login('req_a')
+        resp = self.client.get(reverse('ticket_list'))
+        self.assertEqual(resp.context['tickets'].paginator.count, 1)
+
+    # --- Ticket detail ---
+    def test_admin_a_cannot_access_ticket_b(self):
+        self._login('admin_a')
+        self.assertEqual(self.client.get(reverse('ticket_detail', args=[self.ticket_b.pk])).status_code, 404)
+
+    def test_staff_a_cannot_access_ticket_b(self):
+        self._login('staff_a')
+        self.assertEqual(self.client.get(reverse('ticket_detail', args=[self.ticket_b.pk])).status_code, 404)
+
+    # --- Dashboard ---
+    def test_dashboard_only_shows_own_company(self):
+        self._login('admin_a')
+        resp = self.client.get(reverse('dashboard'))
+        self.assertEqual(resp.context['total'], 1)
+
+    def test_staff_workload_scoped(self):
+        self.ticket_a.assigned_to = self.staff_a
+        self.ticket_a.save()
+        self._login('admin_a')
+        resp = self.client.get(reverse('dashboard'))
+        self.assertEqual(len(resp.context['staff_workload']), 1)
+        self.assertEqual(resp.context['staff_workload'][0]['assigned_to__username'], 'staff_a')
+
+    # --- User management ---
+    def test_admin_a_does_not_see_user_b(self):
+        self._login('admin_a')
+        resp = self.client.get(reverse('user_list'))
+        usernames = [u.username for u in resp.context['users']]
+        self.assertIn('staff_a', usernames)
+        self.assertNotIn('admin_b', usernames)
+        self.assertNotIn('staff_b', usernames)
+        self.assertNotIn('req_b', usernames)
+
+    def test_admin_a_cannot_edit_user_b(self):
+        self._login('admin_a')
+        resp = self.client.get(reverse('user_edit', args=[self.admin_b.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, reverse('user_list'))
+
+    def test_admin_a_cannot_delete_user_b(self):
+        self._login('admin_a')
+        self.client.post(reverse('user_delete', args=[self.admin_b.pk]))
+        self.assertTrue(User.objects.filter(pk=self.admin_b.pk).exists())
+
+    # --- Pending approvals ---
+    def test_admin_a_does_not_see_pending_b(self):
+        self.req_c = make_user('req_c', 'requester', self.company_b)
+        self.req_c.is_active = False
+        self.req_c.save()
+        self.req_c.profile.pending_approval = True
+        self.req_c.profile.save()
+        self._login('admin_a')
+        resp = self.client.get(reverse('pending_approvals'))
+        self.assertEqual(len(resp.context['pending']), 0)
+
+    def test_admin_a_cannot_approve_user_b(self):
+        self.req_c = make_user('req_c', 'requester', self.company_b)
+        self.req_c.is_active = False
+        self.req_c.save()
+        self.req_c.profile.pending_approval = True
+        self.req_c.profile.save()
+        self._login('admin_a')
+        self.client.post(reverse('approve_user', args=[self.req_c.pk]))
+        self.req_c.refresh_from_db()
+        self.assertFalse(self.req_c.is_active)
+
+    # --- Company management ---
+    def test_company_list_requires_superuser(self):
+        self._login('admin_a')
+        resp = self.client.get(reverse('company_list'))
+        self.assertEqual(resp.status_code, 302)
+
+    def test_superuser_sees_all_tickets(self):
+        superuser = User.objects.create_superuser('superadmin', password='pass12345')
+        Profile.objects.get_or_create(user=superuser, defaults={'company': self.company_a, 'role': 'admin'})
+        self._login('superadmin')
+        resp = self.client.get(reverse('ticket_list'))
+        self.assertEqual(resp.context['tickets'].paginator.count, 2)

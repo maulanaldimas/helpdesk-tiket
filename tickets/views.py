@@ -104,9 +104,9 @@ def log_activity(ticket, user, action, detail=''):
 def get_user_tickets(request):
     """QuerySet tiket yang boleh dilihat user sesuai role-nya."""
     profile = request.user.profile
-    if request.user.is_superuser or profile.role == 'admin':
+    if request.user.is_superuser:
         return Ticket.objects.all()
-    if profile.role == 'staff':
+    if profile.role in ('admin', 'staff'):
         return Ticket.objects.filter(company=profile.company)
     return Ticket.objects.filter(created_by=request.user)
 
@@ -117,9 +117,15 @@ def get_visible_ticket(request, pk):
 
 
 def admin_required(user):
+    """True jika superuser atau admin perusahaan."""
     if user.is_superuser:
         return True
     return hasattr(user, 'profile') and user.profile.role == 'admin'
+
+
+def superuser_required(user):
+    """Hanya superuser yang boleh (manajemen lintas perusahaan)."""
+    return user.is_superuser
 
 
 @login_required
@@ -221,7 +227,10 @@ def ticket_detail(request, pk):
 
     staff_users = []
     if can_manage:
-        staff_users = User.objects.filter(profile__role__in=['staff', 'admin'])
+        staff_users = User.objects.filter(
+            profile__role__in=['staff', 'admin'],
+            profile__company=ticket.company,
+        )
 
     return render(request, 'tickets/ticket_detail.html', {
         'ticket': ticket,
@@ -237,7 +246,10 @@ def ticket_detail(request, pk):
 @login_required
 def ticket_create(request):
     profile = request.user.profile
-    locked_company = profile.company if profile.role != 'admin' else None
+    if request.user.is_superuser:
+        locked_company = None
+    else:
+        locked_company = profile.company
 
     if request.method == 'POST':
         form = TicketForm(request.POST, request.FILES)
@@ -312,7 +324,10 @@ def import_tickets(request):
             if not title or not company_name:
                 skipped.append(f'baris {idx}: judul/company kosong')
                 continue
-            company, _ = Company.objects.get_or_create(name=company_name)
+            if request.user.is_superuser:
+                company, _ = Company.objects.get_or_create(name=company_name)
+            else:
+                company = request.user.profile.company
             cat_name = (row.get('category') or '').strip()
             category = None
             if cat_name:
@@ -347,7 +362,7 @@ def my_dashboard(request):
     """Ringkasan personal: staff melihat tiket yang ditugaskan, requester tiket buatannya."""
     profile = request.user.profile
     if profile.role == 'staff':
-        tickets = Ticket.objects.filter(assigned_to=request.user)
+        tickets = Ticket.objects.filter(assigned_to=request.user, company=profile.company)
         scope_label = 'tiket yang ditugaskan ke saya'
     else:
         tickets = Ticket.objects.filter(created_by=request.user)
@@ -406,7 +421,7 @@ def report_page(request):
     tickets = get_filtered_tickets(request)
     profile = request.user.profile
 
-    companies = Company.objects.all() if profile.role == 'admin' else Company.objects.filter(id=profile.company_id)
+    companies = Company.objects.filter(id=profile.company_id) if not request.user.is_superuser else Company.objects.all()
 
     return render(request, 'tickets/report.html', {
         'tickets': tickets,
@@ -591,7 +606,7 @@ def dashboard(request):
     staff_workload = []
     if profile.role == 'admin':
         staff_workload = list(
-            Ticket.objects.filter(assigned_to__isnull=False)
+            Ticket.objects.filter(assigned_to__isnull=False, company=profile.company)
             .values('assigned_to__username', 'assigned_to_id')
             .annotate(total=Count('id'))
             .order_by('-total')
@@ -622,7 +637,7 @@ def dashboard(request):
 
 @login_required
 def company_list(request):
-    if not admin_required(request.user):
+    if not superuser_required(request.user):
         return redirect('dashboard')
 
     if request.method == 'POST':
@@ -640,7 +655,7 @@ def company_list(request):
 
 @login_required
 def company_delete(request, pk):
-    if not admin_required(request.user):
+    if not superuser_required(request.user):
         return redirect('dashboard')
 
     company = get_object_or_404(Company, pk=pk)
@@ -691,6 +706,8 @@ def user_list(request):
 
     role_filter = request.GET.get('role', '')
     users = User.objects.select_related('profile', 'profile__company').all()
+    if not request.user.is_superuser:
+        users = users.filter(profile__company=request.user.profile.company)
     if role_filter:
         users = users.filter(profile__role=role_filter)
 
@@ -706,14 +723,22 @@ def user_create(request):
     if not admin_required(request.user):
         return redirect('dashboard')
 
+    locked_company = request.user.profile.company if not request.user.is_superuser else None
+
     if request.method == 'POST':
         form = UserCreateForm(request.POST)
+        if locked_company:
+            form.fields['company'].queryset = Company.objects.filter(id=locked_company.id)
         if form.is_valid():
-            form.save()
+            user = form.save()
+            if locked_company:
+                Profile.objects.filter(user=user).update(company=locked_company)
             messages.success(request, f"User '{form.cleaned_data['username']}' berhasil dibuat.")
             return redirect('user_list')
     else:
         form = UserCreateForm()
+        if locked_company:
+            form.fields['company'].queryset = Company.objects.filter(id=locked_company.id)
 
     return render(request, 'tickets/user_form.html', {'form': form, 'title': 'Tambah User'})
 
@@ -724,6 +749,8 @@ def user_edit(request, pk):
         return redirect('dashboard')
 
     user = get_object_or_404(User, pk=pk)
+    if not request.user.is_superuser and user.profile.company != request.user.profile.company:
+        return redirect('user_list')
     if request.method == 'POST':
         form = UserEditForm(request.POST, instance=user)
         if form.is_valid():
@@ -742,6 +769,8 @@ def user_delete(request, pk):
         return redirect('dashboard')
 
     user = get_object_or_404(User, pk=pk)
+    if not request.user.is_superuser and user.profile.company != request.user.profile.company:
+        return redirect('user_list')
     if user == request.user:
         messages.error(request, 'Tidak bisa menghapus akun sendiri.')
         return redirect('user_list')
@@ -777,7 +806,9 @@ def register(request):
                 'role': 'requester',
                 'pending_approval': True,
             })
-            admins = User.objects.filter(is_superuser=True) | User.objects.filter(profile__role='admin')
+            admins = User.objects.filter(is_superuser=True) | User.objects.filter(
+                profile__role='admin', profile__company=data['company']
+            )
             notify_system(admins.distinct(), f"Registrasi baru menunggu persetujuan: {user.username}")
             logger.info("Registrasi baru: %s (menunggu persetujuan)", user.username)
             return render(request, 'tickets/register.html', {'registered': True})
@@ -793,6 +824,8 @@ def pending_approvals(request):
         return redirect('dashboard')
 
     pending = User.objects.filter(profile__pending_approval=True).select_related('profile', 'profile__company')
+    if not request.user.is_superuser:
+        pending = pending.filter(profile__company=request.user.profile.company)
     return render(request, 'tickets/pending_approvals.html', {'pending': pending})
 
 
@@ -802,10 +835,13 @@ def approve_user(request, pk):
         return redirect('dashboard')
 
     user = get_object_or_404(User, pk=pk)
+    if not request.user.is_superuser and hasattr(user, 'profile') and user.profile.company != request.user.profile.company:
+        return redirect('pending_approvals')
     if request.method == 'POST':
         profile, _ = Profile.objects.get_or_create(user=user)
         profile.pending_approval = False
         profile.save()
+        user.profile = profile
         user.is_active = True
         user.save()
         notify_system([user], f"Akun kamu ({user.username}) telah disetujui. Silakan masuk.")
@@ -819,6 +855,8 @@ def reject_user(request, pk):
         return redirect('dashboard')
 
     user = get_object_or_404(User, pk=pk)
+    if not request.user.is_superuser and hasattr(user, 'profile') and user.profile.company != request.user.profile.company:
+        return redirect('pending_approvals')
     if request.method == 'POST':
         username = user.username
         user.delete()
@@ -833,6 +871,8 @@ def reset_password(request, pk):
         return redirect('dashboard')
 
     user = get_object_or_404(User, pk=pk)
+    if not request.user.is_superuser and hasattr(user, 'profile') and user.profile.company != request.user.profile.company:
+        return redirect('user_list')
     if request.method == 'POST':
         new_password = request.POST.get('new_password', '').strip()
         if len(new_password) < 8:
@@ -847,7 +887,7 @@ def reset_password(request, pk):
 
 @login_required
 def settings_page(request):
-    if not admin_required(request.user):
+    if not superuser_required(request.user):
         return redirect('dashboard')
 
     cfg = AppSettings.load()

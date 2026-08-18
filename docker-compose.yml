@@ -50,7 +50,6 @@ services:
         condition: service_healthy
 
   worker:
-    image: ghcr.io/maulanaldimas/helpdesk-tiket:latest
     build: .
     restart: unless-stopped
     command: sh -c "while true; do python manage.py sla_check; sleep 3600; done"
