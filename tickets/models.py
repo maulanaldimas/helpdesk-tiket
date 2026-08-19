@@ -87,6 +87,10 @@ class Ticket(models.Model):
     closed_at = models.DateTimeField(null=True, blank=True)
     sla_warning_sent = models.BooleanField(default=False, help_text='Notifikasi mendekati SLA sudah dikirim.')
     sla_overdue_sent = models.BooleanField(default=False, help_text='Notifikasi terlampaui SLA sudah dikirim.')
+    sla_paused = models.BooleanField(default=False, help_text='SLA dijeda saat menunggu balasan requester.')
+    sla_pause_reason = models.CharField(max_length=255, blank=True)
+    sla_paused_at = models.DateTimeField(null=True, blank=True)
+    sla_total_paused_seconds = models.BigIntegerField(default=0, help_text='Total waktu jeda SLA dalam detik.')
 
     def __str__(self):
         return f"#{self.id} - {self.title}"
@@ -115,7 +119,10 @@ class Ticket(models.Model):
             return False
         if not self.sla_deadline:
             return False
-        return timezone.now() > self.sla_deadline
+        if self.sla_paused:
+            return False
+        effective_deadline = self.sla_deadline + timedelta(seconds=self.sla_total_paused_seconds)
+        return timezone.now() > effective_deadline
 
     PRIORITY_BORDER = {
         'low': 'border-l-slate-200',
@@ -263,6 +270,77 @@ class Article(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class InternalNote(models.Model):
+    """Catatan internal staff — tidak terlihat oleh requester."""
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='internal_notes')
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Note by {self.author.username} on Ticket #{self.ticket.id}"
+
+
+class TimeEntry(models.Model):
+    """Catatan waktu kerja pada tiket."""
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='time_entries')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    description = models.CharField(max_length=255, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    stopped_at = models.DateTimeField(null=True, blank=True)
+    duration_minutes = models.PositiveIntegerField(default=0, help_text='Durasi dalam menit.')
+
+    class Meta:
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"{self.user.username}: {self.duration_minutes}m on #{self.ticket.id}"
+
+    def stop(self):
+        if not self.stopped_at:
+            self.stopped_at = timezone.now()
+            delta = self.stopped_at - self.started_at
+            self.duration_minutes = max(1, int(delta.total_seconds() / 60))
+            self.save()
+
+
+class AutoAssignRule(models.Model):
+    """Aturan penugasan otomatis berdasarkan kategori dan/atau prioritas."""
+    PRIORITY_CHOICES = Ticket.PRIORITY_CHOICES
+
+    name = models.CharField(max_length=100)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, blank=True)
+    assign_to = models.ForeignKey(User, on_delete=models.CASCADE, help_text='Staff yang ditugaskan.')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def find_match(cls, ticket):
+        """Cari aturan yang cocok untuk tiket baru. Return user atau None."""
+        rules = cls.objects.filter(
+            is_active=True,
+            company=ticket.company,
+        )
+        for rule in rules:
+            if rule.category_id and rule.category_id != ticket.category_id:
+                continue
+            if rule.priority and rule.priority != ticket.priority:
+                continue
+            return rule.assign_to
+        return None
 
 
 class CannedResponse(models.Model):

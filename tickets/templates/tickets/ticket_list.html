@@ -29,26 +29,59 @@
     </div>
 </form>
 
+{% if user_is_admin %}
+<form method="post" id="bulk-form">
+    {% csrf_token %}
+<div id="bulk-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-slate-900 text-white rounded-xl shadow-2xl px-5 py-3 flex items-center gap-4 text-sm">
+    <span id="bulk-count" class="font-mono font-bold">0</span> dipilih
+    <select name="bulk_status_value" class="bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-sm text-white">
+        <option value="">Ubah Status...</option>
+        {% for value, label in tickets.paginator.object_list.0.STATUS_CHOICES %}
+            <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" name="bulk_action" value="bulk_status" class="btn btn-primary text-xs">Terapkan Status</button>
+    <select name="bulk_assign_value" class="bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-sm text-white">
+        <option value="">Assign ke...</option>
+        {% for s in staff_users %}
+            <option value="{{ s.id }}">{{ s.username }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" name="bulk_action" value="bulk_assign" class="btn btn-primary text-xs">Terapkan Assign</button>
+</div>
+</form>
+{% endif %}
+
 <div class="card divide-y divide-slate-100 overflow-hidden">
     {% for ticket in tickets %}
         <a href="{% url 'ticket_detail' ticket.pk %}"
            class="flex items-center justify-between p-4 pl-5 border-l-4 {{ ticket.priority_border_class }} hover:bg-slate-50 transition">
-            <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                    {% if ticket.is_overdue %}
-                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 signal-dot shrink-0"></span>
-                    {% elif ticket.is_active %}
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 signal-dot shrink-0"></span>
-                    {% endif %}
-                    <p class="font-medium text-slate-900 truncate">
-                        <span class="font-mono text-slate-400 text-sm">#{{ ticket.id }}</span> {{ ticket.title }}
-                    </p>
+            <div class="min-w-0 flex items-center gap-3">
+                {% if user_is_admin %}
+                <input type="checkbox" name="ticket_ids" value="{{ ticket.pk }}"
+                       class="bulk-cb h-4 w-4 rounded border-slate-300 text-indigo-600 shrink-0"
+                       onclick="event.preventDefault(); event.stopPropagation(); updateBulk();">
+                {% endif %}
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        {% if ticket.is_overdue %}
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 signal-dot shrink-0"></span>
+                        {% elif ticket.is_active %}
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 signal-dot shrink-0"></span>
+                        {% endif %}
+                        <p class="font-medium text-slate-900 truncate">
+                            <span class="font-mono text-slate-400 text-sm">#{{ ticket.id }}</span> {{ ticket.title }}
+                        </p>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-0.5">{{ ticket.company.name|default:'Tanpa perusahaan' }} · {{ ticket.category.name|default:'Tanpa kategori' }}</p>
                 </div>
-                <p class="text-sm text-slate-500 mt-0.5">{{ ticket.company.name|default:'Tanpa perusahaan' }} · {{ ticket.category.name|default:'Tanpa kategori' }}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0 ml-4">
                 {% if ticket.is_overdue %}
                     <span class="text-xs font-medium px-2 py-1 rounded-full bg-rose-50 text-rose-700">Overdue</span>
+                {% endif %}
+                {% if ticket.sla_paused %}
+                    <span class="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700">PAUSED</span>
                 {% endif %}
                 <span class="text-xs font-medium px-2 py-1 rounded-full {{ ticket.status_badge_class }}">{{ ticket.get_status_display }}</span>
             </div>
@@ -70,7 +103,7 @@
     <div class="flex gap-1">
         {% if tickets.has_previous %}
             <a href="?page={{ tickets.previous_page_number }}{% if query %}&q={{ query }}{% endif %}"
-               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">←</a>
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&larr;</a>
         {% endif %}
 
         {% for num in tickets.paginator.page_range %}
@@ -84,9 +117,37 @@
 
         {% if tickets.has_next %}
             <a href="?page={{ tickets.next_page_number }}{% if query %}&q={{ query }}{% endif %}"
-               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">→</a>
+               class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&rarr;</a>
         {% endif %}
     </div>
 </div>
 {% endif %}
+
+<script>
+function updateBulk() {
+    var cbs = document.querySelectorAll('.bulk-cb:checked');
+    var bar = document.getElementById('bulk-bar');
+    var count = document.getElementById('bulk-count');
+    count.textContent = cbs.length;
+    bar.className = cbs.length > 0
+        ? 'fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-slate-900 text-white rounded-xl shadow-2xl px-5 py-3 flex items-center gap-4 text-sm'
+        : 'hidden';
+}
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('bulk-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            var checked = document.querySelectorAll('.bulk-cb:checked');
+            if (checked.length === 0) { e.preventDefault(); return; }
+            checked.forEach(function(cb) {
+                var hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'ticket_ids';
+                hidden.value = cb.value;
+                form.appendChild(hidden);
+            });
+        });
+    }
+});
+</script>
 {% endblock %}

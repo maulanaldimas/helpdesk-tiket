@@ -537,7 +537,7 @@ class SettingsTests(TestCase):
         response = self.client.get(reverse('login'))
         content = response.content.decode()
         self.assertIn('Sokkafiber Helpdesk', content)
-        self.assertIn('/static/tickets/img/logo.png', content)
+        self.assertIn('/static/tickets/img/logo', content)
 
 
 class SlaCheckTests(TestCase):

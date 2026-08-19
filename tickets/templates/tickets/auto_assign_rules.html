@@ -1,0 +1,97 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}Aturan Auto-Assignment{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="page-title">Aturan Auto-Assignment</h1>
+        <p class="page-sub">Otomatis assign tiket baru berdasarkan kategori dan prioritas.</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 card divide-y divide-slate-100">
+        {% for rule in rules %}
+            <div class="p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="font-medium text-slate-900 text-sm">{{ rule.name }}</p>
+                        <div class="flex items-center gap-2 mt-1 text-xs text-slate-400">
+                            <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">{{ rule.company.name }}</span>
+                            {% if rule.category %}<span class="px-2 py-0.5 rounded-full bg-slate-100">{{ rule.category.name }}</span>{% else %}<span class="px-2 py-0.5 rounded-full bg-slate-100">Semua kategori</span>{% endif %}
+                            {% if rule.priority %}<span class="px-2 py-0.5 rounded-full bg-sky-50 text-sky-600">{{ rule.get_priority_display }}</span>{% endif %}
+                            <span>&rarr;</span>
+                            <span class="font-medium text-slate-600">{{ rule.assign_to.username }}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        {% if rule.is_active %}
+                            <span class="text-xs text-emerald-600 font-medium">Aktif</span>
+                        {% else %}
+                            <span class="text-xs text-slate-400 font-medium">Nonaktif</span>
+                        {% endif %}
+                        <form method="post" action="{% url 'auto_assign_rule_delete' rule.pk %}" class="inline"
+                              onsubmit="return confirm('Hapus aturan {{ rule.name }}?')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-xs font-medium text-rose-600 hover:text-rose-700">Hapus</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="p-12 text-center text-sm text-slate-400">Belum ada aturan auto-assignment.</div>
+        {% endfor %}
+    </div>
+
+    <div class="card p-5 h-fit">
+        <h2 class="font-display font-semibold text-slate-900 mb-3 text-sm">Tambah Aturan</h2>
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="label">Nama Aturan</label>
+                <input type="text" name="name" required maxlength="100" placeholder="Cth: Hardware Urgent"
+                       class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+            </div>
+            <div>
+                <label class="label">Company</label>
+                <select name="company" required class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">— Pilih —</option>
+                    {% for c in companies %}
+                        <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label">Kategori (opsional)</label>
+                <select name="category" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">— Semua —</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label">Prioritas (opsional)</label>
+                <select name="priority" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">— Semua —</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                </select>
+            </div>
+            <div>
+                <label class="label">Assign ke Staff</label>
+                <select name="assign_to" required class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">— Pilih —</option>
+                    {% for s in staff_users %}
+                        <option value="{{ s.id }}">{{ s.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary w-full">Tambah</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

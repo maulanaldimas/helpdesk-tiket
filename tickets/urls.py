@@ -8,6 +8,7 @@ urlpatterns = [
     path('dashboard/saya/', views.my_dashboard, name='my_dashboard'),
     path('ticket/<int:pk>/', views.ticket_detail, name='ticket_detail'),
     path('ticket/<int:pk>/merge/', views.ticket_merge, name='ticket_merge'),
+    path('ticket/<int:pk>/print/', views.ticket_print_pdf, name='ticket_print_pdf'),
     path('ticket/new/', views.ticket_create, name='ticket_create'),
     path('tickets/import/', views.import_tickets, name='import_tickets'),
     path('tickets/import/template/', views.import_template, name='import_template'),
@@ -56,4 +57,8 @@ urlpatterns = [
     path('templates/', views.canned_response_list, name='canned_response_list'),
     path('templates/<int:pk>/edit/', views.canned_response_edit, name='canned_response_edit'),
     path('templates/<int:pk>/delete/', views.canned_response_delete, name='canned_response_delete'),
+
+    # Auto-assignment rules
+    path('auto-assign/', views.auto_assign_rules, name='auto_assign_rules'),
+    path('auto-assign/<int:pk>/delete/', views.auto_assign_rule_delete, name='auto_assign_rule_delete'),
 ]

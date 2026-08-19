@@ -19,7 +19,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import update_session_auth_hash
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, ExpressionWrapper, DurationField, F, Q
+from django.db.models import Avg, Count, ExpressionWrapper, DurationField, F, Q, Sum
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -37,7 +37,7 @@ from .forms import (
     UserCreateForm,
     UserEditForm,
 )
-from .models import Activity, AppSettings, Article, Category, CannedResponse, Comment, Company, Notification, Profile, Ticket, TicketAttachment
+from .models import Activity, AppSettings, Article, AutoAssignRule, Category, CannedResponse, Comment, Company, InternalNote, Notification, Profile, TimeEntry, Ticket, TicketAttachment
 from .tasks import send_notification_email
 
 logger = logging.getLogger('tickets')
@@ -186,13 +186,44 @@ def ticket_list(request):
 
     tickets = tickets.select_related('company', 'category').order_by('-created_at')
 
+    if request.method == 'POST' and admin_required(request.user):
+        action = request.POST.get('bulk_action', '')
+        ids = request.POST.getlist('ticket_ids')
+        if ids and action:
+            selected = Ticket.objects.filter(pk__in=ids)
+            if not request.user.is_superuser:
+                selected = selected.filter(company=request.user.profile.company)
+
+            if action == 'bulk_status':
+                new_status = request.POST.get('bulk_status_value')
+                if new_status in dict(Ticket.STATUS_CHOICES):
+                    count = selected.update(status=new_status)
+                    messages.success(request, f'{count} tiket berhasil diubah statusnya.')
+            elif action == 'bulk_assign':
+                assignee_id = request.POST.get('bulk_assign_value')
+                if assignee_id:
+                    count = selected.update(assigned_to_id=assignee_id)
+                    messages.success(request, f'{count} tiket berhasil ditugaskan.')
+                else:
+                    count = selected.update(assigned_to=None)
+                    messages.success(request, f'{count} tiket berhasil di-unassign.')
+            return redirect('ticket_list')
+
     paginator = Paginator(tickets, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    staff_users = User.objects.none()
+    if admin_required(request.user):
+        if request.user.is_superuser:
+            staff_users = User.objects.filter(profile__role__in=['staff', 'admin'])
+        else:
+            staff_users = User.objects.filter(profile__role__in=['staff', 'admin'], profile__company=request.user.profile.company)
+
     return render(request, 'tickets/ticket_list.html', {
         'tickets': page_obj,
         'query': query,
+        'staff_users': staff_users,
         'breadcrumbs': [{'label': 'Daftar Tiket'}],
     })
 
@@ -223,6 +254,14 @@ def ticket_detail(request, pk):
                 notify_many(recipients, ticket, f"{request.user.username} menambahkan komentar di tiket #{ticket.id}")
 
                 return redirect('ticket_detail', pk=ticket.pk)
+
+        elif 'internal_note_submit' in request.POST and can_manage:
+            note_msg = request.POST.get('internal_note', '').strip()
+            if note_msg:
+                InternalNote.objects.create(ticket=ticket, author=request.user, message=note_msg)
+                log_activity(ticket, request.user, 'comment', f"[Catatan Internal] {note_msg[:200]}")
+                messages.success(request, 'Catatan internal ditambahkan.')
+            return redirect('ticket_detail', pk=ticket.pk)
 
         elif 'status_submit' in request.POST and can_manage:
             new_status = request.POST.get('status')
@@ -255,10 +294,49 @@ def ticket_detail(request, pk):
                 log_activity(ticket, request.user, action, f"dari {previous.username}" if previous else '')
             return redirect('ticket_detail', pk=ticket.pk)
 
+        elif 'sla_pause_submit' in request.POST and can_manage:
+            if ticket.sla_paused:
+                if ticket.sla_paused_at:
+                    paused_seconds = (timezone.now() - ticket.sla_paused_at).total_seconds()
+                    ticket.sla_total_paused_seconds += int(paused_seconds)
+                ticket.sla_paused = False
+                ticket.sla_paused_at = None
+                ticket.sla_pause_reason = ''
+                log_activity(ticket, request.user, 'status', 'SLA diaktifkan kembali')
+            else:
+                ticket.sla_paused = True
+                ticket.sla_paused_at = timezone.now()
+                ticket.sla_pause_reason = request.POST.get('sla_pause_reason', 'Menunggu balasan')
+                log_activity(ticket, request.user, 'status', f"SLA dijeda: {ticket.sla_pause_reason}")
+            ticket.save()
+            return redirect('ticket_detail', pk=ticket.pk)
+
+        elif 'time_start_submit' in request.POST and can_manage:
+            active = TimeEntry.objects.filter(ticket=ticket, user=request.user, stopped_at__isnull=True).first()
+            if not active:
+                TimeEntry.objects.create(
+                    ticket=ticket,
+                    user=request.user,
+                    description=request.POST.get('time_description', ''),
+                )
+                messages.success(request, 'Timer dimulai.')
+            return redirect('ticket_detail', pk=ticket.pk)
+
+        elif 'time_stop_submit' in request.POST and can_manage:
+            active = TimeEntry.objects.filter(ticket=ticket, user=request.user, stopped_at__isnull=True).first()
+            if active:
+                active.stop()
+                messages.success(request, f'Timer dihentikan: {active.duration_minutes} menit.')
+            return redirect('ticket_detail', pk=ticket.pk)
+
     comment_form = CommentForm()
     comments = ticket.comments.all().order_by('created_at')
     activities = ticket.activities.select_related('user').order_by('-created_at')[:30]
     attachments = ticket.attachments.order_by('-uploaded_at')
+    internal_notes = ticket.internal_notes.select_related('author').order_by('-created_at') if can_manage else []
+    time_entries = ticket.time_entries.select_related('user').order_by('-started_at')[:20]
+    active_timer = TimeEntry.objects.filter(ticket=ticket, user=request.user, stopped_at__isnull=True).first() if can_manage else None
+    total_minutes = ticket.time_entries.aggregate(total=Sum('duration_minutes'))['total'] or 0
 
     staff_users = []
     canned_responses = []
@@ -280,6 +358,10 @@ def ticket_detail(request, pk):
         'can_manage': can_manage,
         'staff_users': staff_users,
         'canned_responses': canned_responses,
+        'internal_notes': internal_notes,
+        'time_entries': time_entries,
+        'active_timer': active_timer,
+        'total_minutes': total_minutes,
         'breadcrumbs': [
             {'label': 'Tiket', 'url': '/'},
             {'label': f'#{ticket.id}'},
@@ -309,6 +391,14 @@ def ticket_create(request):
             added = save_attachments(ticket, form.cleaned_data.get('files') or [], request.user)
             if added:
                 log_activity(ticket, request.user, 'attachment', f"{added} file")
+
+            if not ticket.assigned_to:
+                auto_user = AutoAssignRule.find_match(ticket)
+                if auto_user:
+                    ticket.assigned_to = auto_user
+                    ticket.save()
+                    log_activity(ticket, None, 'assign', f"Otomatis ke {auto_user.username}")
+
             logger.info("Ticket #%s dibuat oleh %s", ticket.id, request.user.username)
             return redirect('ticket_detail', pk=ticket.pk)
     else:
@@ -1232,3 +1322,139 @@ def canned_response_delete(request, pk):
         CannedResponse.objects.filter(pk=pk).delete()
         messages.success(request, 'Template berhasil dihapus.')
     return redirect('canned_response_list')
+
+
+# ---------------------------------------------------------------------------
+# Print Ticket PDF
+# ---------------------------------------------------------------------------
+
+@login_required
+def ticket_print_pdf(request, pk):
+    ticket = get_visible_ticket(request, pk)
+
+    response = HttpResponse(content_type='application/pdf')
+    filename = f"tiket-{ticket.id}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    doc = SimpleDocTemplate(response, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph(f"Tiket #{ticket.id}", styles['Title']))
+    elements.append(Paragraph(f"{ticket.title}", styles['Heading2']))
+    elements.append(Paragraph(" ", styles['Normal']))
+
+    info = [
+        ['Company', ticket.company.name],
+        ['Kategori', ticket.category.name if ticket.category else '-'],
+        ['Status', ticket.get_status_display()],
+        ['Prioritas', ticket.get_priority_display()],
+        ['Dibuat Oleh', ticket.created_by.username],
+        ['Assigned To', ticket.assigned_to.username if ticket.assigned_to else 'Belum ada'],
+        ['Dibuat Pada', ticket.created_at.strftime('%d %B %Y %H:%M')],
+        ['SLA Deadline', ticket.sla_deadline.strftime('%d %B %Y %H:%M') if ticket.sla_deadline else '-'],
+    ]
+    if ticket.closed_at:
+        info.append(['Ditutup', ticket.closed_at.strftime('%d %B %Y %H:%M')])
+
+    table = Table(info, colWidths=[4*cm, 12*cm])
+    table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+    ]))
+    elements.append(table)
+    elements.append(Paragraph(" ", styles['Normal']))
+
+    elements.append(Paragraph("Deskripsi", styles['Heading3']))
+    for line in ticket.description.split('\n'):
+        elements.append(Paragraph(line or '&nbsp;', styles['Normal']))
+    elements.append(Paragraph(" ", styles['Normal']))
+
+    comments = ticket.comments.select_related('author').order_by('created_at')
+    if comments:
+        elements.append(Paragraph(f"Komentar ({comments.count()})", styles['Heading3']))
+        for c in comments:
+            elements.append(Paragraph(
+                f"<b>{c.author.username}</b> ({c.created_at.strftime('%d/%m/%Y %H:%M')}): {c.message[:300]}",
+                styles['Normal']
+            ))
+            elements.append(Paragraph(" ", styles['Normal']))
+
+    time_entries = ticket.time_entries.select_related('user').order_by('-started_at')
+    if time_entries:
+        elements.append(Paragraph("Waktu Kerja", styles['Heading3']))
+        time_data = [['Staff', 'Deskripsi', 'Durasi', 'Tanggal']]
+        for te in time_entries:
+            time_data.append([
+                te.user.username,
+                te.description or '-',
+                f"{te.duration_minutes} menit",
+                te.started_at.strftime('%d/%m/%Y %H:%M'),
+            ])
+        time_table = Table(time_data, colWidths=[3*cm, 6*cm, 3*cm, 4*cm])
+        time_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(time_table)
+
+    doc.build(elements)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Auto-Assignment Rules
+# ---------------------------------------------------------------------------
+
+@login_required
+def auto_assign_rules(request):
+    if not superuser_required(request.user):
+        return redirect('dashboard')
+
+    rules = AutoAssignRule.objects.select_related('company', 'category', 'assign_to').all()
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        company_id = request.POST.get('company', '')
+        category_id = request.POST.get('category', '')
+        priority = request.POST.get('priority', '')
+        assign_to_id = request.POST.get('assign_to', '')
+        if not name or not company_id or not assign_to_id:
+            messages.error(request, 'Nama, company, dan staff wajib diisi.')
+        else:
+            AutoAssignRule.objects.create(
+                name=name,
+                company_id=company_id,
+                category_id=category_id or None,
+                priority=priority or '',
+                assign_to_id=assign_to_id,
+            )
+            messages.success(request, 'Aturan auto-assign berhasil dibuat.')
+            return redirect('auto_assign_rules')
+
+    return render(request, 'tickets/auto_assign_rules.html', {
+        'rules': rules,
+        'companies': Company.objects.all(),
+        'categories': Category.objects.all(),
+        'staff_users': User.objects.filter(profile__role__in=['staff', 'admin']),
+    })
+
+
+@login_required
+def auto_assign_rule_delete(request, pk):
+    if not superuser_required(request.user):
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        AutoAssignRule.objects.filter(pk=pk).delete()
+        messages.success(request, 'Aturan berhasil dihapus.')
+    return redirect('auto_assign_rules')

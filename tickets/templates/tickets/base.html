@@ -112,7 +112,7 @@
             {% if user.is_authenticated %}
             <nav class="hidden md:flex items-center gap-1 text-sm">
                 <a href="{% url 'dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Dashboard</a>
-                <a href="{% url 'my_dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'my_dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Ringkasan Saya</a>
+                <a href="{% url 'my_dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'my_dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Ringkasan</a>
                 <a href="{% url 'ticket_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'ticket_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Tiket</a>
                 <a href="{% url 'article_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'article_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Panduan</a>
                 <a href="{% url 'report_page' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'report_page' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Laporan</a>
@@ -186,7 +186,7 @@
         {% if user.is_authenticated %}
         <nav class="md:hidden bg-white border-t border-slate-100 px-4 py-3 space-y-1 text-sm">
             <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'dashboard' %}bg-slate-100 font-medium text-slate-900{% endif %}">Dashboard</a>
-            <a href="{% url 'my_dashboard' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'my_dashboard' %}bg-slate-100 font-medium text-slate-900{% endif %}">Ringkasan Saya</a>
+            <a href="{% url 'my_dashboard' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'my_dashboard' %}bg-slate-100 font-medium text-slate-900{% endif %}">Ringkasan</a>
             <a href="{% url 'ticket_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'ticket_list' %}bg-slate-100 font-medium text-slate-900{% endif %}">Tiket</a>
             <a href="{% url 'article_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'article_list' %}bg-slate-100 font-medium text-slate-900{% endif %}">Panduan</a>
             <a href="{% url 'report_page' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 {% if request.resolver_match.url_name == 'report_page' %}bg-slate-100 font-medium text-slate-900{% endif %}">Laporan</a>
