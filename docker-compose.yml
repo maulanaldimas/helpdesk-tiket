@@ -7,7 +7,7 @@ x-app-env: &app-env
   DB_ENGINE: django.db.backends.postgresql
   DB_NAME: helpdesk
   DB_USER: helpdesk
-  DB_PASSWORD: ${DB_PASSWORD:-helpdesk-secret}
+  DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
   DB_HOST: db
   DB_PORT: "5432"
   EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
@@ -39,7 +39,7 @@ services:
     environment:
       POSTGRES_DB: helpdesk
       POSTGRES_USER: helpdesk
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-helpdesk-secret}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
