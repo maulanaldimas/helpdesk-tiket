@@ -37,7 +37,7 @@ from .forms import (
     UserCreateForm,
     UserEditForm,
 )
-from .models import Activity, AppSettings, Article, AutoAssignRule, Category, CannedResponse, Comment, Company, InternalNote, Notification, Profile, TimeEntry, Ticket, TicketAttachment
+from .models import Activity, AppSettings, Article, AutoAssignRule, Category, CannedResponse, Comment, Company, InternalNote, Notification, Profile, SatisfactionRating, TimeEntry, Ticket, TicketAttachment
 from .tasks import send_notification_email
 
 logger = logging.getLogger('tickets')
@@ -197,16 +197,29 @@ def ticket_list(request):
             if action == 'bulk_status':
                 new_status = request.POST.get('bulk_status_value')
                 if new_status in dict(Ticket.STATUS_CHOICES):
-                    count = selected.update(status=new_status)
-                    messages.success(request, f'{count} tiket berhasil diubah statusnya.')
+                    for t in selected:
+                        t.status = new_status
+                        t.save()
+                        log_activity(t, request.user, 'status', f"Bulk: -> {t.get_status_display()}")
+                        notify_many({t.created_by, t.assigned_to} - {request.user, None}, t, f"Status tiket #{t.id} diubah menjadi {t.get_status_display()}")
+                    messages.success(request, f'{selected.count()} tiket berhasil diubah statusnya.')
             elif action == 'bulk_assign':
                 assignee_id = request.POST.get('bulk_assign_value')
                 if assignee_id:
-                    count = selected.update(assigned_to_id=assignee_id)
-                    messages.success(request, f'{count} tiket berhasil ditugaskan.')
+                    assignee = User.objects.filter(pk=assignee_id).first()
+                    for t in selected:
+                        t.assigned_to_id = assignee_id
+                        t.save()
+                        log_activity(t, request.user, 'assign', f"Bulk: ke {assignee.username}")
+                        notify_many({assignee}, t, f"Tiket #{t.id} ditugaskan ke Anda")
+                    messages.success(request, f'{selected.count()} tiket berhasil ditugaskan.')
                 else:
-                    count = selected.update(assigned_to=None)
-                    messages.success(request, f'{count} tiket berhasil di-unassign.')
+                    for t in selected:
+                        prev = t.assigned_to
+                        t.assigned_to = None
+                        t.save()
+                        log_activity(t, request.user, 'unassign', f"Bulk: dari {prev.username}" if prev else '')
+                    messages.success(request, f'{selected.count()} tiket berhasil di-unassign.')
             return redirect('ticket_list')
 
     paginator = Paginator(tickets, 10)
@@ -235,6 +248,20 @@ def ticket_detail(request, pk):
     can_manage = profile.role in ['admin', 'staff']
 
     if request.method == 'POST':
+        if 'rate_submit' in request.POST and not can_manage:
+            rating_val = request.POST.get('rating')
+            if rating_val and ticket.status in ('resolved', 'closed') and ticket.created_by == request.user:
+                if not SatisfactionRating.objects.filter(ticket=ticket).exists():
+                    SatisfactionRating.objects.create(
+                        ticket=ticket,
+                        rating=int(rating_val),
+                        comment=request.POST.get('rating_comment', ''),
+                        created_by=request.user,
+                    )
+                    log_activity(ticket, request.user, 'comment', f"Rating kepuasan: {rating_val}/5")
+                    messages.success(request, 'Terima kasih atas rating Anda!')
+            return redirect('ticket_detail', pk=ticket.pk)
+
         if 'comment_submit' in request.POST:
             comment_form = CommentForm(request.POST, request.FILES)
             if comment_form.is_valid():
@@ -243,6 +270,10 @@ def ticket_detail(request, pk):
                 comment.author = request.user
                 comment.save()
                 log_activity(ticket, request.user, 'comment', comment.message[:255])
+
+                if not ticket.first_response_at and request.user.profile.role in ('staff', 'admin'):
+                    ticket.first_response_at = timezone.now()
+                    ticket.save(update_fields=['first_response_at'])
 
                 added = save_attachments(ticket, comment_form.cleaned_data.get('files') or [], request.user)
                 if added:
@@ -292,6 +323,8 @@ def ticket_detail(request, pk):
                 notify_many({ticket.assigned_to}, ticket, f"Kamu ditugaskan ke tiket #{ticket.id}")
             else:
                 log_activity(ticket, request.user, action, f"dari {previous.username}" if previous else '')
+            if action == 'unassign' and previous:
+                notify_many({previous}, ticket, f"Anda tidak lagi menangani tiket #{ticket.id}")
             return redirect('ticket_detail', pk=ticket.pk)
 
         elif 'sla_pause_submit' in request.POST and can_manage:
@@ -338,6 +371,14 @@ def ticket_detail(request, pk):
     active_timer = TimeEntry.objects.filter(ticket=ticket, user=request.user, stopped_at__isnull=True).first() if can_manage else None
     total_minutes = ticket.time_entries.aggregate(total=Sum('duration_minutes'))['total'] or 0
 
+    satisfaction = getattr(ticket, 'satisfaction_rating', None)
+    can_rate = (
+        not can_manage
+        and ticket.status in ('resolved', 'closed')
+        and ticket.created_by == request.user
+        and not satisfaction
+    )
+
     staff_users = []
     canned_responses = []
     if can_manage:
@@ -362,6 +403,8 @@ def ticket_detail(request, pk):
         'time_entries': time_entries,
         'active_timer': active_timer,
         'total_minutes': total_minutes,
+        'satisfaction': satisfaction,
+        'can_rate': can_rate,
         'breadcrumbs': [
             {'label': 'Tiket', 'url': '/'},
             {'label': f'#{ticket.id}'},
@@ -398,6 +441,13 @@ def ticket_create(request):
                     ticket.assigned_to = auto_user
                     ticket.save()
                     log_activity(ticket, None, 'assign', f"Otomatis ke {auto_user.username}")
+                    notify_many({auto_user}, ticket, f"Tiket #{ticket.id} ditugaskan otomatis ke Anda")
+
+            company_admins = User.objects.filter(
+                profile__company=ticket.company, profile__role__in=['staff', 'admin']
+            ).exclude(pk=request.user.pk)
+            if company_admins:
+                notify_many(set(company_admins), ticket, f"Tiket baru #{ticket.id}: {ticket.title}")
 
             logger.info("Ticket #%s dibuat oleh %s", ticket.id, request.user.username)
             return redirect('ticket_detail', pk=ticket.pk)
@@ -779,6 +829,17 @@ def dashboard(request):
     ).aggregate(avg=Avg('dur'))['avg']
     avg_resolution_hours = round(avg_duration.total_seconds() / 3600, 1) if avg_duration else 0
 
+    frt_qs = tickets.filter(first_response_at__isnull=False).annotate(
+        frt=ExpressionWrapper(F('first_response_at') - F('created_at'), output_field=DurationField())
+    )
+    avg_frt = frt_qs.aggregate(avg=Avg('frt'))['avg']
+    avg_first_response_hours = round(avg_frt.total_seconds() / 3600, 1) if avg_frt else 0
+    total_with_frt = frt_qs.count()
+
+    csat_qs = SatisfactionRating.objects.filter(ticket__in=tickets)
+    total_ratings = csat_qs.count()
+    avg_csat = round(csat_qs.aggregate(avg=Avg('rating'))['avg'], 1) if total_ratings else 0
+
     # Tren 14 hari terakhir
     trend_labels, trend_counts = [], []
     today = timezone.localdate()
@@ -809,6 +870,10 @@ def dashboard(request):
         'category_breakdown': category_breakdown,
         'sla_compliance': sla_compliance,
         'avg_resolution_hours': avg_resolution_hours,
+        'avg_first_response_hours': avg_first_response_hours,
+        'total_with_frt': total_with_frt,
+        'avg_csat': avg_csat,
+        'total_ratings': total_ratings,
         'trend_labels': trend_labels,
         'trend_counts': trend_counts,
         'staff_workload': staff_workload,

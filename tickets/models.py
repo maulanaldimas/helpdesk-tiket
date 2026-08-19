@@ -38,8 +38,8 @@ class Profile(models.Model):
         ('requester', 'Requester'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='requester')
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, db_index=True)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='requester', db_index=True)
     phone = models.CharField(max_length=30, blank=True)
     job_title = models.CharField(max_length=100, blank=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
@@ -47,6 +47,11 @@ class Profile(models.Model):
         default=False,
         help_text='Menunggu persetujuan admin (dari registrasi mandiri).',
     )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['company', 'role']),
+        ]
 
     def avatar_url(self):
         if self.avatar:
@@ -73,24 +78,33 @@ class Ticket(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField()
-    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_index=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', db_index=True)
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
 
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tickets_created')
-    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tickets_assigned')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tickets_created', db_index=True)
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tickets_assigned', db_index=True)
 
-    sla_deadline = models.DateTimeField(null=True, blank=True)
+    sla_deadline = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     closed_at = models.DateTimeField(null=True, blank=True)
+    first_response_at = models.DateTimeField(null=True, blank=True, help_text='Waktu balasan pertama dari staff.')
     sla_warning_sent = models.BooleanField(default=False, help_text='Notifikasi mendekati SLA sudah dikirim.')
     sla_overdue_sent = models.BooleanField(default=False, help_text='Notifikasi terlampaui SLA sudah dikirim.')
     sla_paused = models.BooleanField(default=False, help_text='SLA dijeda saat menunggu balasan requester.')
     sla_pause_reason = models.CharField(max_length=255, blank=True)
     sla_paused_at = models.DateTimeField(null=True, blank=True)
     sla_total_paused_seconds = models.BigIntegerField(default=0, help_text='Total waktu jeda SLA dalam detik.')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['company', 'status']),
+            models.Index(fields=['status', 'priority']),
+            models.Index(fields=['created_by', 'status']),
+            models.Index(fields=['assigned_to', 'status']),
+        ]
 
     def __str__(self):
         return f"#{self.id} - {self.title}"
@@ -189,11 +203,16 @@ class TicketAttachment(models.Model):
 
 
 class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications', db_index=True)
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, null=True, blank=True)
     message = models.CharField(max_length=255)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'is_read']),
+        ]
 
     def __str__(self):
         return f"Notification for {self.user.username}: {self.message}"
@@ -358,3 +377,25 @@ class CannedResponse(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class SatisfactionRating(models.Model):
+    RATING_CHOICES = [
+        (1, 'Sangat Tidak Puas'),
+        (2, 'Tidak Puas'),
+        (3, 'Netral'),
+        (4, 'Puas'),
+        (5, 'Sangat Puas'),
+    ]
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name='satisfaction_rating')
+    rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES)
+    comment = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Rating Kepuasan'
+        verbose_name_plural = 'Rating Kepuasan'
+
+    def __str__(self):
+        return f"Ticket #{self.ticket.id} — {self.rating}/5"

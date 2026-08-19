@@ -7,7 +7,11 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Activity, AppSettings, Article, Category, Company, Profile, Ticket
+from .models import (
+    Activity, AppSettings, Article, Category, Company, Notification, Profile,
+    SatisfactionRating, Ticket, TimeEntry, CannedResponse, InternalNote,
+    AutoAssignRule,
+)
 
 
 def make_user(username, role, company=None, password='pass12345'):
@@ -893,3 +897,297 @@ class IdleSessionTests(TestCase):
         self.client.logout()
         resp = self.client.get(reverse('login'))
         self.assertEqual(resp.status_code, 200)
+
+
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.user = make_user('resetter', 'requester', self.company)
+
+    def test_password_reset_form_page(self):
+        resp = self.client.get(reverse('password_reset'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_password_reset_submit_redirects_to_done(self):
+        resp = self.client.post(reverse('password_reset'), {'email': self.user.email})
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/password-reset/done/', resp.url)
+
+    def test_password_reset_done_page(self):
+        resp = self.client.get(reverse('password_reset_done'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_password_reset_complete_page(self):
+        resp = self.client.get(reverse('password_reset_complete'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_password_reset_confirm_invalid_token(self):
+        resp = self.client.get(reverse('password_reset_confirm', kwargs={'uidb64': 'MQ', 'token': 'bad-token-abc'}))
+        self.assertEqual(resp.status_code, 200)
+
+
+class FirstResponseTimeTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.staff = make_user('staff1', 'staff', self.company)
+        self.requester = make_user('req1', 'requester', self.company)
+        self.ticket = make_ticket(self.requester, self.company, self.category)
+
+    def test_first_response_at_initially_none(self):
+        self.assertIsNone(self.ticket.first_response_at)
+
+    def test_first_response_set_on_staff_comment(self):
+        self.client.login(username='staff1', password='pass12345')
+        resp = self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'comment_submit': '',
+            'message': 'Respon pertama staff',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.ticket.refresh_from_db()
+        self.assertIsNotNone(self.ticket.first_response_at)
+
+    def test_first_response_not_set_by_requester_comment(self):
+        self.client.login(username='req1', password='pass12345')
+        resp = self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'comment_submit': '',
+            'message': 'Komentar requester',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.ticket.refresh_from_db()
+        self.assertIsNone(self.ticket.first_response_at)
+
+    def test_first_response_not_overwritten_on_second_comment(self):
+        self.client.login(username='staff1', password='pass12345')
+        self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'comment_submit': '',
+            'message': 'Pertama',
+        })
+        self.ticket.refresh_from_db()
+        first = self.ticket.first_response_at
+        self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'comment_submit': '',
+            'message': 'Kedua',
+        })
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.first_response_at, first)
+
+
+class SatisfactionRatingTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.requester = make_user('req1', 'requester', self.company)
+        self.staff = make_user('staff1', 'staff', self.company)
+        self.ticket = make_ticket(self.requester, self.company, self.category, status='resolved')
+
+    def test_requester_can_rate_resolved_ticket(self):
+        self.client.login(username='req1', password='pass12345')
+        resp = self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'rate_submit': '',
+            'rating': '5',
+            'rating_comment': 'Bagus sekali',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(SatisfactionRating.objects.count(), 1)
+        rating = SatisfactionRating.objects.first()
+        self.assertEqual(rating.rating, 5)
+
+    def test_cannot_rate_twice(self):
+        SatisfactionRating.objects.create(
+            ticket=self.ticket, rating=4, created_by=self.requester,
+        )
+        self.client.login(username='req1', password='pass12345')
+        resp = self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'rate_submit': '',
+            'rating': '1',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(SatisfactionRating.objects.count(), 1)
+
+    def test_staff_cannot_rate(self):
+        self.client.login(username='staff1', password='pass12345')
+        resp = self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'rate_submit': '',
+            'rating': '5',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(SatisfactionRating.objects.count(), 0)
+
+    def test_cannot_rate_open_ticket(self):
+        self.ticket.status = 'open'
+        self.ticket.save()
+        self.client.login(username='req1', password='pass12345')
+        resp = self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'rate_submit': '',
+            'rating': '5',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(SatisfactionRating.objects.count(), 0)
+
+
+class AutoCloseTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.user = make_user('staff1', 'staff', self.company)
+        self.ticket = make_ticket(self.user, self.company, self.category, status='resolved')
+
+    def test_close_stale_resolved(self):
+        self.ticket.closed_at = timezone.now() - timedelta(days=10)
+        self.ticket.save()
+        from django.core.management import call_command
+        out = call_command('close_stale_resolved', verbosity=0)
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.status, 'closed')
+
+    def test_dry_run_does_not_close(self):
+        self.ticket.closed_at = timezone.now() - timedelta(days=10)
+        self.ticket.save()
+        from django.core.management import call_command
+        call_command('close_stale_resolved', '--dry-run', verbosity=0)
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.status, 'resolved')
+
+    def test_recently_resolved_not_closed(self):
+        self.ticket.closed_at = timezone.now() - timedelta(days=2)
+        self.ticket.save()
+        from django.core.management import call_command
+        call_command('close_stale_resolved', '--days=7', verbosity=0)
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.status, 'resolved')
+
+
+class NotificationTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.staff = make_user('staff1', 'staff', self.company)
+        self.requester = make_user('req1', 'requester', self.company)
+
+    def test_notification_created_on_comment(self):
+        self.client.login(username='staff1', password='pass12345')
+        ticket = make_ticket(self.requester, self.company, self.category)
+        self.client.post(reverse('ticket_detail', args=[ticket.pk]), {
+            'comment_submit': '',
+            'message': 'Komentar staff',
+        })
+        self.assertTrue(Notification.objects.filter(user=self.requester, ticket=ticket).exists())
+
+    def test_notification_created_on_status_change(self):
+        self.client.login(username='staff1', password='pass12345')
+        ticket = make_ticket(self.requester, self.company, self.category)
+        self.client.post(reverse('ticket_detail', args=[ticket.pk]), {
+            'status_submit': '',
+            'status': 'in_progress',
+        })
+        self.assertTrue(Notification.objects.filter(user=self.requester, ticket=ticket).exists())
+
+
+class BulkNotificationTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.admin = make_user('admin1', 'admin', self.company)
+        self.requester = make_user('req1', 'requester', self.company)
+
+    def test_bulk_status_change_creates_notifications(self):
+        t1 = make_ticket(self.requester, self.company, self.category)
+        t2 = make_ticket(self.requester, self.company, self.category)
+        self.client.login(username='admin1', password='pass12345')
+        self.client.post(reverse('ticket_list'), {
+            'ticket_ids': [str(t1.pk), str(t2.pk)],
+            'bulk_action': 'bulk_status',
+            'bulk_status_value': 'in_progress',
+        })
+        self.assertTrue(Notification.objects.filter(user=self.requester, ticket=t1).exists())
+        self.assertTrue(Notification.objects.filter(user=self.requester, ticket=t2).exists())
+
+
+class PasswordResetEmailTests(TestCase):
+    def test_password_reset_sends_email(self):
+        company = Company.objects.create(name='PT Uji')
+        user = make_user('emailuser', 'requester', company)
+        self.client.post(reverse('password_reset'), {'email': user.email})
+        from django.core import mail
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(user.email, mail.outbox[0].to)
+
+
+class InternalNoteTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.staff = make_user('staff1', 'staff', self.company)
+        self.requester = make_user('req1', 'requester', self.company)
+        self.ticket = make_ticket(self.requester, self.company, self.category)
+
+    def test_staff_can_add_internal_note(self):
+        self.client.login(username='staff1', password='pass12345')
+        resp = self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'internal_note_submit': '',
+            'internal_note': 'Ini catatan internal',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(InternalNote.objects.count(), 1)
+        note = InternalNote.objects.first()
+        self.assertEqual(note.message, 'Ini catatan internal')
+        self.assertEqual(note.author, self.staff)
+
+    def test_requester_cannot_add_internal_note(self):
+        self.client.login(username='req1', password='pass12345')
+        resp = self.client.post(reverse('ticket_detail', args=[self.ticket.pk]), {
+            'internal_note_submit': '',
+            'internal_note': 'Catatan',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(InternalNote.objects.count(), 0)
+
+
+class TimeEntryTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.staff = make_user('staff1', 'staff', self.company)
+        self.ticket = make_ticket(self.staff, self.company, self.category)
+
+    def test_time_entry_stop(self):
+        te = TimeEntry.objects.create(
+            ticket=self.ticket, user=self.staff, description='Debugging',
+        )
+        te.stopped_at = te.started_at + timedelta(minutes=25)
+        te.duration_minutes = 25
+        te.save()
+        self.assertEqual(te.duration_minutes, 25)
+
+
+class CloseStaleResolvedCommandTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.user = make_user('staff1', 'staff', self.company)
+
+    def test_no_resolved_tickets(self):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('close_stale_resolved', stdout=out, verbosity=1)
+        self.assertIn('Tidak ada tiket', out.getvalue())
+
+    def test_custom_days_flag(self):
+        ticket = make_ticket(self.user, self.company, self.category, status='resolved')
+        ticket.closed_at = timezone.now() - timedelta(days=3)
+        ticket.save()
+        from django.core.management import call_command
+        call_command('close_stale_resolved', '--days=2', verbosity=0)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, 'closed')
+
+    def test_creates_notification_for_assigned_user(self):
+        ticket = make_ticket(self.user, self.company, self.category, status='resolved')
+        ticket.assigned_to = self.user
+        ticket.closed_at = timezone.now() - timedelta(days=10)
+        ticket.save()
+        from django.core.management import call_command
+        call_command('close_stale_resolved', verbosity=0)
+        self.assertTrue(Notification.objects.filter(user=self.user, ticket=ticket).exists())

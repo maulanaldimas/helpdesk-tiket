@@ -33,8 +33,18 @@
         <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Kepatuhan SLA</p>
         <p class="font-display text-3xl font-bold text-indigo-600 mt-2">{{ sla_compliance }}%</p>
         {% if avg_resolution_hours %}
-            <p class="text-xs text-slate-400 mt-1.5">Rata-rata {{ avg_resolution_hours }} jam</p>
+            <p class="text-xs text-slate-400 mt-1.5">Resolusi: {{ avg_resolution_hours }} jam</p>
         {% endif %}
+    </div>
+    <div class="card p-4 sm:p-5">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Respon Pertama</p>
+        <p class="font-display text-3xl font-bold text-sky-600 mt-2">{{ avg_first_response_hours }}j</p>
+        <p class="text-xs text-slate-400 mt-1.5">{{ total_with_frt }} tiket terukur</p>
+    </div>
+    <div class="card p-4 sm:p-5">
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">CSAT</p>
+        <p class="font-display text-3xl font-bold text-amber-500 mt-2">{% if avg_csat %}{{ avg_csat }}{% else %}-{% endif %}<span class="text-lg">/5</span></p>
+        <p class="text-xs text-slate-400 mt-1.5">{{ total_ratings }} rating</p>
     </div>
 </div>
 

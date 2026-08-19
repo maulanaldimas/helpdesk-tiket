@@ -72,6 +72,9 @@
     <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-400 font-mono mt-3">
         <span>SLA: {{ ticket.sla_deadline|date:"d M Y H:i" }}</span>
         <span>Dibuat: {{ ticket.created_at|date:"d M Y H:i" }}</span>
+        {% if ticket.first_response_at %}
+            <span>Balasan pertama: {{ ticket.first_response_at|date:"d M Y H:i" }}</span>
+        {% endif %}
         {% if ticket.closed_at %}
             <span>Ditutup: {{ ticket.closed_at|date:"d M Y H:i" }}</span>
         {% endif %}
@@ -305,6 +308,40 @@
             {% endfor %}
         </div>
     </div>
+</div>
+{% endif %}
+
+{% if satisfaction %}
+<div class="card p-5 mt-4 border-l-4 border-l-emerald-400">
+    <h2 class="font-display font-semibold text-slate-900 mb-2">Rating Kepuasan</h2>
+    <div class="flex items-center gap-1 text-amber-400 text-lg">
+        {% for i in "12345" %}
+            {% if forloop.counter <= satisfaction.rating %}★{% else %}☆{% endif %}
+        {% endfor %}
+        <span class="text-sm text-slate-500 font-mono ml-2">{{ satisfaction.rating }}/5</span>
+    </div>
+    {% if satisfaction.comment %}
+        <p class="text-sm text-slate-600 mt-2">{{ satisfaction.comment }}</p>
+    {% endif %}
+</div>
+{% elif can_rate %}
+<div class="card p-5 mt-4 border-l-4 border-l-amber-400">
+    <h2 class="font-display font-semibold text-slate-900 mb-2">Beri Rating</h2>
+    <p class="text-xs text-slate-500 mb-3">Bagaimana pengalaman Anda dengan tiket ini?</p>
+    <form method="post" class="space-y-3">
+        {% csrf_token %}
+        <div class="flex gap-1">
+            {% for i in "12345" %}
+            <label class="cursor-pointer">
+                <input type="radio" name="rating" value="{{ forloop.counter }}" class="sr-only peer">
+                <span class="text-2xl text-slate-300 peer-checked:text-amber-400 transition hover:text-amber-300">★</span>
+            </label>
+            {% endfor %}
+        </div>
+        <textarea name="rating_comment" rows="2" placeholder="Komentar opsional..."
+                  class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"></textarea>
+        <button type="submit" name="rate_submit" class="btn btn-primary text-xs">Kirim Rating</button>
+    </form>
 </div>
 {% endif %}
 {% endblock %}
