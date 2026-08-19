@@ -53,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'helpdesk.middleware.IdleSessionMiddleware',
 ]
 
 ROOT_URLCONF = 'helpdesk.urls'
@@ -150,6 +151,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGIN_URL = 'login'
 LOGOUT_REDIRECT_URL = 'login'
+
+
+# Session idle timeout (detik). Default 30 menit. Atur 0 untuk menonaktifkan.
+IDLE_TIMEOUT = int(os.getenv('IDLE_TIMEOUT', '1800'))  # 30 menit
+SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', '86400'))  # 1 hari absolut
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 
 # Email — default: cetak ke console (untuk development).

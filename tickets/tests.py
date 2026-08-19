@@ -1,7 +1,9 @@
 from datetime import timedelta
+import time
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -849,3 +851,45 @@ class TenantIsolationTests(TestCase):
         self._login('superadmin')
         resp = self.client.get(reverse('ticket_list'))
         self.assertEqual(resp.context['tickets'].paginator.count, 2)
+
+
+class IdleSessionTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.user = make_user('staff1', 'staff', self.company)
+        self.client.login(username='staff1', password='pass12345')
+
+    @override_settings(IDLE_TIMEOUT=60)
+    def test_active_session_stays_logged_in(self):
+        resp = self.client.get(reverse('dashboard'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('_last_activity', self.client.session)
+
+    @override_settings(IDLE_TIMEOUT=60)
+    def test_idle_session_gets_logged_out(self):
+        base = time.time()
+        with patch('helpdesk.middleware.time') as mock_time:
+            mock_time.time.return_value = base
+            self.client.get(reverse('dashboard'))
+
+            mock_time.time.return_value = base + 120
+            resp = self.client.get(reverse('dashboard'))
+            self.assertEqual(resp.status_code, 302)
+            self.assertIn('login', resp.url)
+
+    @override_settings(IDLE_TIMEOUT=0)
+    def test_timeout_disabled_never_logs_out(self):
+        base = time.time()
+        with patch('helpdesk.middleware.time') as mock_time:
+            mock_time.time.return_value = base
+            self.client.get(reverse('dashboard'))
+
+            mock_time.time.return_value = base + 99999
+            resp = self.client.get(reverse('dashboard'))
+            self.assertEqual(resp.status_code, 200)
+
+    @override_settings(IDLE_TIMEOUT=60)
+    def test_unauthenticated_bypasses_middleware(self):
+        self.client.logout()
+        resp = self.client.get(reverse('login'))
+        self.assertEqual(resp.status_code, 200)
