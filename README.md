@@ -6,8 +6,13 @@
 [![Django 5.1](https://img.shields.io/badge/Django-5.1-092E20.svg)](https://www.djangoproject.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![Tests](https://img.shields.io/badge/Tests-113%20passing-brightgreen.svg)](#testing)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20it!-00C853.svg)](https://helpdesk-tiket-production.up.railway.app)
 
 > A full-featured, production-ready **IT support ticket system** built with Django. Multi-company, role-based access, SLA tracking, analytics dashboard, knowledge base, and audit trail — all containerized with Docker.
+
+---
+
+**Live Demo:** [helpdesk-tiket-production.up.railway.app](https://helpdesk-tiket-production.up.railway.app)
 
 ---
 
