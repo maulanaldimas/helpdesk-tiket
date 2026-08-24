@@ -1191,3 +1191,127 @@ class CloseStaleResolvedCommandTests(TestCase):
         from django.core.management import call_command
         call_command('close_stale_resolved', verbosity=0)
         self.assertTrue(Notification.objects.filter(user=self.user, ticket=ticket).exists())
+
+
+class HealthcheckTests(TestCase):
+    def test_healthcheck_returns_ok(self):
+        resp = self.client.get('/health/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['database'], 'ok')
+
+
+class NotificationAPITests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.user = make_user('staff1', 'staff', self.company)
+        self.requester = make_user('req1', 'requester', self.company)
+        self.ticket = make_ticket(self.requester, self.company, self.category)
+
+    def test_notifications_endpoint(self):
+        Notification.objects.create(user=self.user, ticket=self.ticket, message='Test notif')
+        self.client.login(username='staff1', password='pass12345')
+        resp = self.client.get('/api/notifications/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(len(data['notifications']), 1)
+        self.assertEqual(data['notifications'][0]['message'], 'Test notif')
+
+    def test_notifications_empty(self):
+        self.client.login(username='staff1', password='pass12345')
+        resp = self.client.get('/api/notifications/')
+        data = resp.json()
+        self.assertEqual(data['count'], 0)
+
+    def test_mark_notifications_read(self):
+        Notification.objects.create(user=self.user, ticket=self.ticket, message='Test')
+        self.client.login(username='staff1', password='pass12345')
+        resp = self.client.post('/api/notifications/mark-read/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.user.notifications.filter(is_read=False).count(), 0)
+
+    def test_unauthenticated_redirects(self):
+        resp = self.client.get('/api/notifications/')
+        self.assertEqual(resp.status_code, 302)
+
+
+class AuditLogExportTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.admin = make_user('admin1', 'admin', self.company)
+        self.staff = make_user('staff1', 'staff', self.company)
+        self.ticket = make_ticket(self.staff, self.company, self.category)
+        Activity.objects.create(ticket=self.ticket, user=self.staff, action='created', detail='Test')
+
+    def test_excel_export(self):
+        self.client.login(username='admin1', password='pass12345')
+        resp = self.client.get('/activity/export/excel/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('spreadsheetml', resp['Content-Type'])
+
+    def test_csv_export(self):
+        self.client.login(username='admin1', password='pass12345')
+        resp = self.client.get('/activity/export/csv/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'text/csv')
+
+    def test_pdf_export(self):
+        self.client.login(username='admin1', password='pass12345')
+        resp = self.client.get('/activity/export/pdf/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'application/pdf')
+
+    def test_non_admin_cannot_export(self):
+        self.client.login(username='staff1', password='pass12345')
+        resp = self.client.get('/activity/export/excel/')
+        self.assertEqual(resp.status_code, 302)
+
+
+class SLAEscalationTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.admin = make_user('admin1', 'admin', self.company)
+        self.staff = make_user('staff1', 'staff', self.company)
+        self.ticket = make_ticket(self.staff, self.company, self.category)
+
+    def test_escalation_log_page(self):
+        self.client.login(username='admin1', password='pass12345')
+        with self.settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}}):
+            resp = self.client.get('/sla/escalations/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_sla_check_escalates_to_admin(self):
+        self.ticket.sla_deadline = timezone.now() - timedelta(hours=5)
+        self.ticket.sla_overdue_sent = True
+        self.ticket.save()
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('sla_check', '--escalate-after-hours=2', stdout=out, verbosity=1)
+        self.assertTrue(Notification.objects.filter(
+            user=self.admin, ticket=self.ticket,
+            message__startswith='ESKALASI'
+        ).exists())
+
+    def test_sla_check_no_escalation_before_hours(self):
+        self.ticket.sla_deadline = timezone.now() - timedelta(hours=1)
+        self.ticket.sla_overdue_sent = True
+        self.ticket.save()
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('sla_check', '--escalate-after-hours=2', stdout=out, verbosity=1)
+        self.assertFalse(Notification.objects.filter(
+            user=self.admin, ticket=self.ticket,
+            message__startswith='ESKALASI'
+        ).exists())
+
+    def test_non_admin_cannot_view_escalation_log(self):
+        self.client.login(username='staff1', password='pass12345')
+        resp = self.client.get('/sla/escalations/')
+        self.assertEqual(resp.status_code, 302)

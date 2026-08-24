@@ -20,7 +20,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, ExpressionWrapper, DurationField, F, Q, Sum
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -1523,3 +1523,170 @@ def auto_assign_rule_delete(request, pk):
         AutoAssignRule.objects.filter(pk=pk).delete()
         messages.success(request, 'Aturan berhasil dihapus.')
     return redirect('auto_assign_rules')
+
+
+# ---------------------------------------------------------------------------
+# Real-time Notifications (AJAX polling)
+# ---------------------------------------------------------------------------
+
+@login_required
+def api_notifications(request):
+    """Return unread notifications + count for AJAX polling."""
+    notifs = request.user.notifications.filter(is_read=False).order_by('-created_at')[:10]
+    return JsonResponse({
+        'count': request.user.notifications.filter(is_read=False).count(),
+        'notifications': [
+            {
+                'id': n.id,
+                'message': n.message,
+                'ticket_id': n.ticket_id,
+                'created_at': n.created_at.strftime('%d %b %Y %H:%M'),
+            }
+            for n in notifs
+        ],
+    })
+
+
+@login_required
+def api_mark_notifications_read(request):
+    """Mark all notifications as read."""
+    if request.method == 'POST':
+        request.user.notifications.filter(is_read=False).update(is_read=True)
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'error'}, status=405)
+
+
+# ---------------------------------------------------------------------------
+# Audit Log Export
+# ---------------------------------------------------------------------------
+
+@login_required
+def activity_export_excel(request):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    activities = Activity.objects.select_related('ticket', 'user', 'ticket__company').order_by('-created_at')
+    if not request.user.is_superuser:
+        activities = activities.filter(ticket__company=request.user.profile.company)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Audit Log'
+
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='4F46E5', end_color='4F46E5', fill_type='solid')
+    headers = ['Waktu', 'Tiket', 'User', 'Aksi', 'Detail', 'Company']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+
+    for row, act in enumerate(activities[:1000], 2):
+        ws.cell(row=row, column=1, value=act.created_at.strftime('%d/%m/%Y %H:%M'))
+        ws.cell(row=row, column=2, value=f'#{act.ticket.id}')
+        ws.cell(row=row, column=3, value=act.user.username if act.user else 'Sistem')
+        ws.cell(row=row, column=4, value=act.get_action_display())
+        ws.cell(row=row, column=5, value=act.detail)
+        ws.cell(row=row, column=6, value=act.ticket.company.name if act.ticket.company else '')
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 50)
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="audit_log.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def activity_export_csv(request):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    activities = Activity.objects.select_related('ticket', 'user', 'ticket__company').order_by('-created_at')
+    if not request.user.is_superuser:
+        activities = activities.filter(ticket__company=request.user.profile.company)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="audit_log.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Waktu', 'Tiket', 'User', 'Aksi', 'Detail', 'Company'])
+    for act in activities[:1000]:
+        writer.writerow([
+            act.created_at.strftime('%d/%m/%Y %H:%M'),
+            f'#{act.ticket.id}',
+            act.user.username if act.user else 'Sistem',
+            act.get_action_display(),
+            act.detail,
+            act.ticket.company.name if act.ticket.company else '',
+        ])
+    return response
+
+
+@login_required
+def activity_export_pdf(request):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    activities = Activity.objects.select_related('ticket', 'user', 'ticket__company').order_by('-created_at')
+    if not request.user.is_superuser:
+        activities = activities.filter(ticket__company=request.user.profile.company)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="audit_log.pdf"'
+
+    doc = SimpleDocTemplate(response, pagesize=landscape(A4))
+    styles = getSampleStyleSheet()
+    elements = [Paragraph('Audit Log', styles['Title'])]
+
+    data = [['Waktu', 'Tiket', 'User', 'Aksi', 'Detail', 'Company']]
+    for act in activities[:500]:
+        data.append([
+            act.created_at.strftime('%d/%m/%Y %H:%M'),
+            f'#{act.ticket.id}',
+            act.user.username if act.user else 'Sistem',
+            act.get_action_display(),
+            act.detail[:60],
+            act.ticket.company.name if act.ticket.company else '',
+        ])
+
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F46E5')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# SLA Escalation Management
+# ---------------------------------------------------------------------------
+
+@login_required
+def sla_escalation_log(request):
+    if not admin_required(request.user):
+        return redirect('dashboard')
+
+    escalated = Ticket.objects.filter(
+        sla_overdue_sent=True,
+        status__in=['open', 'in_progress'],
+    ).select_related('company', 'category', 'assigned_to', 'created_by').order_by('-created_at')
+
+    if not request.user.is_superuser:
+        escalated = escalated.filter(company=request.user.profile.company)
+
+    paginator = Paginator(escalated, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'tickets/sla_escalation_log.html', {
+        'tickets': page_obj,
+    })

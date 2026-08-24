@@ -61,4 +61,16 @@ urlpatterns = [
     # Auto-assignment rules
     path('auto-assign/', views.auto_assign_rules, name='auto_assign_rules'),
     path('auto-assign/<int:pk>/delete/', views.auto_assign_rule_delete, name='auto_assign_rule_delete'),
+
+    # API — real-time notifications
+    path('api/notifications/', views.api_notifications, name='api_notifications'),
+    path('api/notifications/mark-read/', views.api_mark_notifications_read, name='api_mark_notifications_read'),
+
+    # Audit log export
+    path('activity/export/excel/', views.activity_export_excel, name='activity_export_excel'),
+    path('activity/export/csv/', views.activity_export_csv, name='activity_export_csv'),
+    path('activity/export/pdf/', views.activity_export_pdf, name='activity_export_pdf'),
+
+    # SLA escalation
+    path('sla/escalations/', views.sla_escalation_log, name='sla_escalation_log'),
 ]

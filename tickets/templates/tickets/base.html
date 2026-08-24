@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,6 +13,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
@@ -38,6 +39,10 @@
         select, textarea {
             @apply w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white transition;
         }
+        .dark input[type="text"], .dark input[type="password"], .dark input[type="email"],
+        .dark select, .dark textarea {
+            @apply border-slate-600 bg-slate-800 text-slate-100;
+        }
         input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus,
         select:focus, textarea:focus {
             @apply outline-none ring-2 ring-indigo-500/30 border-indigo-500;
@@ -55,6 +60,9 @@
         .btn-secondary {
             @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50;
         }
+        .dark .btn-secondary {
+            @apply bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700;
+        }
         .btn-danger {
             @apply bg-rose-50 text-rose-600 hover:bg-rose-100;
         }
@@ -62,14 +70,26 @@
         .card {
             @apply bg-white rounded-xl border border-slate-200 shadow-card;
         }
+        .dark .card {
+            @apply bg-slate-800 border-slate-700;
+        }
         .page-title {
             @apply font-display text-2xl font-bold tracking-tight text-slate-900;
+        }
+        .dark .page-title {
+            @apply text-slate-100;
         }
         .page-sub {
             @apply text-sm text-slate-500 mt-1;
         }
+        .dark .page-sub {
+            @apply text-slate-400;
+        }
         .label {
             @apply block text-sm font-medium text-slate-700 mb-1;
+        }
+        .dark .label {
+            @apply text-slate-300;
         }
 
         details.dropdown > summary { list-style: none; }
@@ -98,6 +118,22 @@
         .btn-primary { background-color: var(--accent) !important; }
         .btn-primary:hover { background-color: color-mix(in srgb, var(--accent) 88%, #000) !important; }
         .btn-primary:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+
+        .dark body, .dark html { background-color: #0f172a; color: #e2e8f0; }
+        .dark .bg-slate-50 { background-color: #0f172a; }
+        .dark header { background-color: rgb(30 41 59 / 0.9); border-color: #334155; }
+        .dark footer { border-color: #334155; color: #64748b; }
+        .dark .bg-white { background-color: #1e293b; }
+        .dark .text-slate-900 { color: #f1f5f9; }
+        .dark .text-slate-800 { color: #e2e8f0; }
+        .dark .text-slate-700 { color: #cbd5e1; }
+        .dark .text-slate-500 { color: #94a3b8; }
+        .dark .text-slate-400 { color: #64748b; }
+        .dark .border-slate-200 { border-color: #334155; }
+        .dark .border-slate-100 { border-color: #1e293b; }
+        .dark .hover\:bg-slate-50:hover { background-color: #1e293b; }
+        .dark .hover\:bg-slate-100:hover { background-color: #334155; }
+        .dark .bg-slate-100 { background-color: #334155; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen flex flex-col">
@@ -105,7 +141,7 @@
         <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
             <a href="{% url 'dashboard' %}" class="flex items-center gap-2.5 font-display font-bold text-lg tracking-tight shrink-0">
                 <img src="{{ site_logo_url }}" alt="{{ site_name }}" class="h-10 w-auto">
-                <span class="text-slate-900">{{ site_name }}</span>
+                <span class="text-slate-900 dark:text-slate-100">{{ site_name }}</span>
                 <span class="text-slate-400 font-normal hidden sm:inline">/ Helpdesk</span>
             </a>
 
@@ -135,6 +171,8 @@
                         <a href="{% url 'canned_response_list' %}" class="block px-4 py-2 hover:bg-slate-50">Template Jawaban</a>
                         <a href="{% url 'activity_log' %}" class="block px-4 py-2 hover:bg-slate-50">Log Aktivitas</a>
                         <a href="{% url 'auto_assign_rules' %}" class="block px-4 py-2 hover:bg-slate-50">Auto-Assign</a>
+                        <a href="{% url 'sla_escalation_log' %}" class="block px-4 py-2 hover:bg-slate-50">SLA Escalations</a>
+                        <div class="border-t border-slate-100 my-1"></div>
                         <a href="{% url 'settings_page' %}" class="block px-4 py-2 hover:bg-slate-50">Pengaturan</a>
                     </div>
                 </details>
@@ -142,14 +180,17 @@
             </nav>
 
             <div class="flex items-center gap-1.5 sm:gap-2">
-                <a href="{% url 'notification_list' %}" class="relative text-slate-400 hover:text-slate-700 transition p-2 rounded-lg hover:bg-slate-100" title="Notifikasi">
+                <a href="{% url 'notification_list' %}" class="relative text-slate-400 hover:text-slate-700 transition p-2 rounded-lg hover:bg-slate-100" title="Notifikasi" id="notif-bell">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
                     </svg>
-                    {% if unread_notif_count > 0 %}
-                        <span class="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-mono font-semibold flex items-center justify-center">{{ unread_notif_count }}</span>
-                    {% endif %}
+                    <span id="notif-badge" class="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-mono font-semibold flex items-center justify-center {% if unread_notif_count == 0 %}hidden{% endif %}" style="{% if unread_notif_count > 0 %}display:flex{% endif %}">{{ unread_notif_count }}</span>
                 </a>
+
+                <button id="dark-toggle" class="text-slate-400 hover:text-slate-700 transition p-2 rounded-lg hover:bg-slate-100" title="Toggle dark mode">
+                    <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                    <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
 
                 <a href="{% url 'ticket_create' %}" class="btn btn-primary">+ Tiket Baru</a>
 
@@ -204,6 +245,7 @@
                 <a href="{% url 'canned_response_list' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Template Jawaban</a>
                 <a href="{% url 'activity_log' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Log Aktivitas</a>
                 <a href="{% url 'auto_assign_rules' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Auto-Assign</a>
+                <a href="{% url 'sla_escalation_log' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">SLA Escalations</a>
                 <a href="{% url 'settings_page' %}" class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Pengaturan</a>
             </div>
             {% endif %}
@@ -231,11 +273,60 @@
     </footer>
 
     <script>
-        document.addEventListener('click', function (e) {
-            document.querySelectorAll('details.dropdown[open]').forEach(function (d) {
-                if (!d.contains(e.target)) d.removeAttribute('open');
+        (function() {
+            // --- Dark Mode ---
+            var toggle = document.getElementById('dark-toggle');
+            var html = document.documentElement;
+            var sunIcon = document.getElementById('sun-icon');
+            var moonIcon = document.getElementById('moon-icon');
+
+            function applyDark(dark) {
+                if (dark) {
+                    html.classList.add('dark');
+                    sunIcon.classList.remove('hidden');
+                    moonIcon.classList.add('hidden');
+                } else {
+                    html.classList.remove('dark');
+                    sunIcon.classList.add('hidden');
+                    moonIcon.classList.remove('hidden');
+                }
+            }
+
+            var stored = localStorage.getItem('darkMode');
+            if (stored === 'true' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                applyDark(true);
+            }
+
+            toggle.addEventListener('click', function() {
+                var isDark = html.classList.contains('dark');
+                applyDark(!isDark);
+                localStorage.setItem('darkMode', !isDark);
             });
-        });
+
+            // --- Real-time Notifications (AJAX polling) ---
+            var badge = document.getElementById('notif-badge');
+            var POLL_INTERVAL = 30000;
+
+            function pollNotifications() {
+                fetch('/api/notifications/')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        badge.textContent = data.count;
+                        badge.style.display = data.count > 0 ? 'flex' : 'none';
+                    })
+                    .catch(function() {});
+            }
+
+            pollNotifications();
+            setInterval(pollNotifications, POLL_INTERVAL);
+
+            // --- Close dropdowns on outside click ---
+            document.addEventListener('click', function(e) {
+                document.querySelectorAll('details.dropdown[open]').forEach(function(d) {
+                    if (!d.contains(e.target)) d.removeAttribute('open');
+                });
+            });
+        })();
     </script>
 </body>
 </html>

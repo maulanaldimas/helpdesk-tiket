@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
+from django.http import JsonResponse
 
 
 class BrandLoginView(auth_views.LoginView):
@@ -12,8 +13,27 @@ class BrandLoginView(auth_views.LoginView):
         return ctx
 
 
+def healthcheck(request):
+    status = {'status': 'ok', 'database': 'ok', 'redis': 'ok'}
+    try:
+        from django.db import connection
+        connection.ensure_connection()
+    except Exception:
+        status['database'] = 'error'
+        status['status'] = 'degraded'
+    try:
+        import redis as _r
+        from django.conf import settings
+        r = _r.from_url(settings.CELERY_BROKER_URL, socket_connect_timeout=2)
+        r.ping()
+    except Exception:
+        status['redis'] = 'unavailable'
+    return JsonResponse(status)
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('health/', healthcheck, name='healthcheck'),
     path('login/', BrandLoginView.as_view(template_name='tickets/login.html', redirect_authenticated_user=True), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
     path('password-reset/', auth_views.PasswordResetView.as_view(

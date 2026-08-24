@@ -21,6 +21,21 @@
     {% endif %}
 </form>
 
+<div class="flex items-center gap-2 mb-4">
+    <a href="{% url 'activity_export_excel' %}{% if action_filter %}?action={{ action_filter }}{% endif %}" class="btn btn-secondary text-xs">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/></svg>
+        Excel
+    </a>
+    <a href="{% url 'activity_export_csv' %}{% if action_filter %}?action={{ action_filter }}{% endif %}" class="btn btn-secondary text-xs">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/></svg>
+        CSV
+    </a>
+    <a href="{% url 'activity_export_pdf' %}{% if action_filter %}?action={{ action_filter }}{% endif %}" class="btn btn-secondary text-xs">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/></svg>
+        PDF
+    </a>
+</div>
+
 <div class="card divide-y divide-slate-100 overflow-hidden">
     {% for act in activities %}
         <div class="flex items-start gap-3 p-4">

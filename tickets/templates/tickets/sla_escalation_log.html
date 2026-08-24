@@ -1,0 +1,56 @@
+{% extends 'tickets/base.html' %}
+
+{% block title %}SLA Escalations{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">SLA Escalations</h1>
+    <p class="page-sub">Tiket yang terlambat melewati SLA dan membutuhkan perhatian segera.</p>
+</div>
+
+<div class="card divide-y divide-slate-100 overflow-hidden">
+    {% for ticket in tickets %}
+        <div class="flex items-start gap-3 p-4">
+            <span class="mt-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0 signal-dot"></span>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm text-slate-700">
+                    <a href="{% url 'ticket_detail' ticket.pk %}" class="font-mono font-semibold text-indigo-600 hover:text-indigo-500">#{{ ticket.id }}</a>
+                    <span class="font-medium text-slate-900">{{ ticket.title }}</span>
+                </p>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    {{ ticket.get_priority_display }} · {{ ticket.get_status_display }} ·
+                    {% if ticket.assigned_to %}{{ ticket.assigned_to.username }}{% else %}<span class="text-rose-500">Unassigned</span>{% endif %}
+                    <span class="text-slate-300 mx-1">·</span>
+                    {{ ticket.company.name }}
+                    <span class="text-slate-300 mx-1">·</span>
+                    <span class="font-mono">{{ ticket.created_at|date:"d M Y H:i" }}</span>
+                </p>
+            </div>
+            <span class="text-xs font-medium text-rose-600 bg-rose-50 px-2 py-1 rounded-full whitespace-nowrap">OVERDUE</span>
+        </div>
+    {% empty %}
+        <div class="p-12 text-center text-sm text-slate-400">Tidak ada tiket yang terlambat. Semua SLA terpenuhi.</div>
+    {% endfor %}
+</div>
+
+{% if tickets.paginator.num_pages > 1 %}
+<div class="flex items-center justify-between mt-4 text-sm">
+    <p class="text-slate-400">Halaman {{ tickets.number }} dari {{ tickets.paginator.num_pages }}</p>
+    <div class="flex gap-1">
+        {% if tickets.has_previous %}
+            <a href="?page={{ tickets.previous_page_number }}" class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&larr;</a>
+        {% endif %}
+        {% for num in tickets.paginator.page_range %}
+            {% if num == tickets.number %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-mono">{{ num }}</span>
+            {% elif num > tickets.number|add:"-3" and num < tickets.number|add:"3" %}
+                <a href="?page={{ num }}" class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-mono">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if tickets.has_next %}
+            <a href="?page={{ tickets.next_page_number }}" class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">&rarr;</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
