@@ -1,4 +1,4 @@
-# Contributing to Sokkafiber Helpdesk
+# Contributing to IT Helpdesk
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to this project.
 

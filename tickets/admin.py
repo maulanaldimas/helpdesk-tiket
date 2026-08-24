@@ -141,6 +141,6 @@ class AppSettingsAdmin(admin.ModelAdmin):
         return request.user.is_superuser
 
 
-admin.site.site_header = 'Sokkafiber Helpdesk Admin'
+admin.site.site_header = 'IT Helpdesk Admin'
 admin.site.site_title = 'Helpdesk Admin'
 admin.site.index_title = 'Manajemen'

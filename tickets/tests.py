@@ -542,7 +542,7 @@ class SettingsTests(TestCase):
     def test_login_page_exposes_branding(self):
         response = self.client.get(reverse('login'))
         content = response.content.decode()
-        self.assertIn('Sokkafiber Helpdesk', content)
+        self.assertIn('IT Helpdesk', content)
         self.assertIn('/static/tickets/img/logo', content)
 
 

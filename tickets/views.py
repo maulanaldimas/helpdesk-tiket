@@ -518,8 +518,8 @@ def import_template(request):
     writer = csv.writer(response)
     writer.writerow(['title', 'description', 'company', 'category', 'priority', 'status'])
     writer.writerow(['Laptop tidak menyala', 'Deskripsi masalah lengkap di sini...',
-                     'Sokka Tama Fiber', 'Hardware', 'high', 'open'])
-    writer.writerow(['Printer bermasalah', '', 'Sokka Tama Fiber', 'Hardware', 'medium', 'in_progress'])
+                     'Acme Corp', 'Hardware', 'high', 'open'])
+    writer.writerow(['Printer bermasalah', '', 'Acme Corp', 'Hardware', 'medium', 'in_progress'])
     return response
 
 
@@ -748,7 +748,7 @@ def report_export_pdf(request):
 
     doc = SimpleDocTemplate(response, pagesize=landscape(A4), topMargin=1.5*cm, bottomMargin=1.5*cm)
     styles = getSampleStyleSheet()
-    elements = [Paragraph("Laporan Tiket Helpdesk - Sokkafiber", styles['Title'])]
+    elements = [Paragraph("Laporan Tiket Helpdesk", styles['Title'])]
     elements.append(Paragraph(f"Dicetak: {timezone.now().strftime('%d %B %Y %H:%M')}", styles['Normal']))
     elements.append(Paragraph(" ", styles['Normal']))
 

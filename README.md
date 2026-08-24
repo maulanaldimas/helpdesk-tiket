@@ -1,4 +1,4 @@
-# Sokkafiber Helpdesk
+# IT Helpdesk
 
 [![CI](https://github.com/maulanaldimas/helpdesk-tiket/actions/workflows/ci.yml/badge.svg)](https://github.com/maulanaldimas/helpdesk-tiket/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

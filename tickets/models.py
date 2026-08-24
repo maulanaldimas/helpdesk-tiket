@@ -240,9 +240,9 @@ class Activity(models.Model):
 class AppSettings(models.Model):
     """Pengaturan branding aplikasi (singleton, satu baris)."""
 
-    site_name = models.CharField(max_length=100, default='Sokkafiber Helpdesk')
+    site_name = models.CharField(max_length=100, default='IT Helpdesk')
     tagline = models.CharField(max_length=200, blank=True, default='Internal IT Support')
-    footer_text = models.CharField(max_length=200, blank=True, default='Sokkafiber Helpdesk · Internal IT Support')
+    footer_text = models.CharField(max_length=200, blank=True, default='IT Helpdesk · Internal Support')
     logo = models.ImageField(upload_to='brand/', blank=True, null=True, help_text='Kosongkan untuk memakai logo bawaan.')
     primary_color = models.CharField(max_length=7, default='#4f46e5', help_text='Warna aksen, format hex (mis. #4f46e5).')
 
