@@ -1,43 +1,44 @@
 {% extends 'tickets/base.html' %}
+{% load i18n %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}{% trans "Dashboard" %}{% endblock %}
 
 {% block content %}
 {% include 'tickets/breadcrumbs.html' %}
 
 <div class="flex items-center justify-between mb-8">
     <div>
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-sub">Ringkasan aktivitas helpdesk Anda.</p>
+        <h1 class="page-title">{% trans "Dashboard" %}</h1>
+        <p class="page-sub">{% trans "Ringkasan aktivitas helpdesk Anda." %}</p>
     </div>
-    <a href="{% url 'ticket_create' %}" class="btn btn-primary">+ Buat Tiket</a>
+    <a href="{% url 'ticket_create' %}" class="btn btn-primary">{% trans "+ Buat Tiket" %}</a>
 </div>
 
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
     <div class="card p-4 sm:p-5">
-        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Total Tiket</p>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">{% trans "Total Tiket" %}</p>
         <p class="font-display text-3xl font-bold text-slate-900 mt-2">{{ total }}</p>
     </div>
     <div class="card p-4 sm:p-5">
-        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Aktif</p>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">{% trans "Aktif" %}</p>
         <p class="font-display text-3xl font-bold text-sky-600 mt-2">{{ status_counts.open|add:status_counts.in_progress }}</p>
     </div>
     <div class="card p-4 sm:p-5 {% if overdue_count > 0 %}border-rose-200{% endif %}">
         <p class="text-xs text-slate-400 font-medium uppercase tracking-wide flex items-center gap-1.5">
             {% if overdue_count > 0 %}<span class="w-1.5 h-1.5 rounded-full bg-rose-500 signal-dot"></span>{% endif %}
-            Overdue
+            {% trans "Overdue" %}
         </p>
         <p class="font-display text-3xl font-bold {% if overdue_count > 0 %}text-rose-600{% else %}text-slate-900{% endif %} mt-2">{{ overdue_count }}</p>
     </div>
     <div class="card p-4 sm:p-5">
-        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Kepatuhan SLA</p>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">{% trans "Kepatuhan SLA" %}</p>
         <p class="font-display text-3xl font-bold text-indigo-600 mt-2">{{ sla_compliance }}%</p>
         {% if avg_resolution_hours %}
             <p class="text-xs text-slate-400 mt-1.5">Resolusi: {{ avg_resolution_hours }} jam</p>
         {% endif %}
     </div>
     <div class="card p-4 sm:p-5">
-        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Respon Pertama</p>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">{% trans "Respon Pertama" %}</p>
         <p class="font-display text-3xl font-bold text-sky-600 mt-2">{{ avg_first_response_hours }}j</p>
         <p class="text-xs text-slate-400 mt-1.5">{{ total_with_frt }} tiket terukur</p>
     </div>
@@ -50,34 +51,38 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
     <div class="card p-5 lg:col-span-2">
-        <h2 class="font-display font-semibold text-slate-900 mb-4">Tren Tiket Masuk</h2>
-        <p class="text-xs text-slate-400 -mt-3 mb-4">14 hari terakhir</p>
+        <h2 class="font-display font-semibold text-slate-900 mb-1">{% trans "Tren Tiket Masuk" %}</h2>
+        <p class="text-xs text-slate-400 mb-4">{% trans "14 hari terakhir" %}</p>
         <div class="relative h-64">
             <canvas id="trendChart"></canvas>
         </div>
     </div>
 
     <div class="card p-5">
-        <h2 class="font-display font-semibold text-slate-900 mb-4">Status Tiket</h2>
-        <div class="space-y-3">
-            {% for s in status_data %}
-                <div>
-                    <div class="flex justify-between text-sm mb-1">
-                        <span class="text-slate-600">{{ s.label }}</span>
-                        <span class="font-mono text-xs text-slate-400">{{ s.count }}</span>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-1.5">
-                        <div class="rounded-full h-1.5 {% if s.value == 'open' %}bg-emerald-500{% elif s.value == 'in_progress' %}bg-sky-500{% elif s.value == 'resolved' %}bg-slate-400{% else %}bg-slate-300{% endif %}" style="width: {% widthratio s.count total 100 %}%"></div>
-                    </div>
-                </div>
-            {% endfor %}
+        <h2 class="font-display font-semibold text-slate-900 mb-1">{% trans "Status Tiket" %}</h2>
+        <p class="text-xs text-slate-400 mb-4">Distribusi saat ini</p>
+        <div class="relative h-48 mb-4">
+            <canvas id="slaChart"></canvas>
         </div>
+        <div class="space-y-2 text-xs text-slate-500">
+            <div class="flex justify-between"><span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-500"></span>Selesai Tepat Waktu</span><span class="font-mono">{{ sla_on_time }}</span></div>
+            <div class="flex justify-between"><span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Overdue</span><span class="font-mono">{{ sla_overdue_count }}</span></div>
+            <div class="flex justify-between"><span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-400"></span>Masih Aktif</span><span class="font-mono">{{ sla_still_active }}</span></div>
+        </div>
+    </div>
+</div>
+
+<div class="card p-5 mb-6">
+    <h2 class="font-display font-semibold text-slate-900 mb-1">{% trans "Activity Heatmap" %}</h2>
+    <p class="text-xs text-slate-400 mb-4">{% trans "12 minggu terakhir — tiket baru & komentar per hari" %}</p>
+    <div class="relative h-48">
+        <canvas id="heatmapChart"></canvas>
     </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
     <div class="card p-5">
-        <h2 class="font-display font-semibold text-slate-900 mb-4">Prioritas</h2>
+        <h2 class="font-display font-semibold text-slate-900 mb-4">{% trans "Prioritas" %}</h2>
         <div class="space-y-3">
             {% for p in priority_data %}
                 <div class="flex items-center justify-between text-sm">
@@ -89,7 +94,7 @@
     </div>
 
     <div class="card p-5">
-        <h2 class="font-display font-semibold text-slate-900 mb-4">Kategori Terbanyak</h2>
+        <h2 class="font-display font-semibold text-slate-900 mb-4">{% trans "Kategori Terbanyak" %}</h2>
         <div class="space-y-2">
             {% for cat in category_breakdown %}
                 <div class="flex justify-between items-center text-sm py-1.5 border-b border-slate-50 last:border-0">
@@ -103,7 +108,7 @@
     </div>
 
     <div class="card p-5">
-        <h2 class="font-display font-semibold text-slate-900 mb-4">Ringkasan</h2>
+        <h2 class="font-display font-semibold text-slate-900 mb-4">{% trans "Ringkasan" %}</h2>
         <div class="space-y-3 text-sm">
             <div class="flex justify-between items-center border-b border-slate-50 pb-2">
                 <span class="text-slate-500">Resolved</span>
@@ -124,7 +129,7 @@
 {% if staff_workload %}
 <div class="card mb-6">
     <div class="p-5 pb-3">
-        <h2 class="font-display font-semibold text-slate-900">Beban Tiket per Staff</h2>
+        <h2 class="font-display font-semibold text-slate-900">{% trans "Beban Tiket per Staff" %}</h2>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -156,8 +161,8 @@
 
 <div class="card">
     <div class="flex items-center justify-between p-5 pb-3">
-        <h2 class="font-display font-semibold text-slate-900">Tiket Terbaru</h2>
-        <a href="{% url 'ticket_list' %}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">Lihat semua →</a>
+        <h2 class="font-display font-semibold text-slate-900">{% trans "Tiket Terbaru" %}</h2>
+        <a href="{% url 'ticket_list' %}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">{% trans "Lihat semua →" %}</a>
     </div>
     <div class="divide-y divide-slate-100">
         {% for t in recent_tickets %}
@@ -205,6 +210,69 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     });
+
+    // Activity Heatmap — bar chart 12 minggu
+    var heatCtx = document.getElementById('heatmapChart');
+    if (heatCtx) {
+        new Chart(heatCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ heatmap_labels|safe }},
+                datasets: [
+                    {
+                        label: 'Tiket baru',
+                        data: {{ heatmap_tickets_data }},
+                        backgroundColor: '#6366f1',
+                        borderRadius: 2,
+                        barPercentage: 0.8,
+                    },
+                    {
+                        label: 'Komentar',
+                        data: {{ heatmap_comments_data }},
+                        backgroundColor: '#38bdf8',
+                        borderRadius: 2,
+                        barPercentage: 0.8,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'rectRounded', padding: 16, font: { size: 11 } } }
+                },
+                scales: {
+                    y: { beginAtZero: true, stacked: true, ticks: { stepSize: 1, precision: 0, color: '#94a3b8' }, grid: { color: '#f1f5f9' } },
+                    x: { stacked: true, ticks: { color: '#94a3b8', maxTicksLimit: 12, font: { size: 10 } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // SLA Donut
+    var slaCtx = document.getElementById('slaChart');
+    if (slaCtx) {
+        new Chart(slaCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Selesai Tepat Waktu', 'Overdue', 'Masih Aktif'],
+                datasets: [{
+                    data: [{{ sla_on_time }}, {{ sla_overdue_count }}, {{ sla_still_active }}],
+                    backgroundColor: ['#22c55e', '#f43f5e', '#94a3b8'],
+                    borderWidth: 0,
+                    spacing: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 12, font: { size: 11 } } }
+                }
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

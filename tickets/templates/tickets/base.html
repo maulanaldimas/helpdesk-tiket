@@ -1,4 +1,4 @@
-{% load static %}
+{% load static i18n %}
 <!DOCTYPE html>
 <html lang="id" class="">
 <head>
@@ -147,16 +147,16 @@
 
             {% if user.is_authenticated %}
             <nav class="hidden md:flex items-center gap-1 text-sm">
-                <a href="{% url 'dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Dashboard</a>
-                <a href="{% url 'my_dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'my_dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Ringkasan</a>
-                <a href="{% url 'ticket_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'ticket_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Tiket</a>
-                <a href="{% url 'article_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'article_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Panduan</a>
-                <a href="{% url 'report_page' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'report_page' %}text-slate-900 bg-slate-100 font-medium{% endif %}">Laporan</a>
+                <a href="{% url 'dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">{% trans "Dashboard" %}</a>
+                <a href="{% url 'my_dashboard' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'my_dashboard' %}text-slate-900 bg-slate-100 font-medium{% endif %}">{% trans "Ringkasan" %}</a>
+                <a href="{% url 'ticket_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'ticket_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">{% trans "Tiket" %}</a>
+                <a href="{% url 'article_list' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'article_list' %}text-slate-900 bg-slate-100 font-medium{% endif %}">{% trans "Panduan" %}</a>
+                <a href="{% url 'report_page' %}" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition {% if request.resolver_match.url_name == 'report_page' %}text-slate-900 bg-slate-100 font-medium{% endif %}">{% trans "Laporan" %}</a>
 
                 {% if user_is_admin %}
                 <details class="dropdown relative">
                     <summary class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer {% if request.resolver_match.url_name in 'user_list,user_create,company_list,category_list,article_create,article_edit' %}text-slate-900 bg-slate-100 font-medium{% endif %}">
-                        Kelola
+                        {% trans "Kelola" %}
                     </summary>
                     <div class="absolute left-0 mt-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 text-sm text-slate-700">
                         <a href="{% url 'user_list' %}" class="block px-4 py-2 hover:bg-slate-50">Users</a>
@@ -180,7 +180,7 @@
             </nav>
 
             <div class="flex items-center gap-1.5 sm:gap-2">
-                <a href="{% url 'notification_list' %}" class="relative text-slate-400 hover:text-slate-700 transition p-2 rounded-lg hover:bg-slate-100" title="Notifikasi" id="notif-bell">
+                <a href="{% url 'notification_list' %}" class="relative text-slate-400 hover:text-slate-700 transition p-2 rounded-lg hover:bg-slate-100" title="{% trans 'Notifikasi' %}" id="notif-bell">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
                     </svg>
@@ -192,7 +192,20 @@
                     <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 </button>
 
-                <a href="{% url 'ticket_create' %}" class="btn btn-primary">+ Tiket Baru</a>
+                <form action="{% url 'set_language' %}" method="post" class="inline">
+                    {% csrf_token %}
+                    <input name="next" type="hidden" value="{{ request.path }}">
+                    <select name="language" onchange="this.form.submit()" class="text-xs border-0 bg-transparent text-slate-500 hover:text-slate-900 cursor-pointer py-1 px-1 rounded hover:bg-slate-100 transition font-medium">
+                        {% get_current_language as CURRENT_LANG %}
+                        {% get_available_languages as AVAILABLE_LANGUAGES %}
+                        {% get_language_info_list for AVAILABLE_LANGUAGES as languages %}
+                        {% for lang in languages %}
+                            <option value="{{ lang.code }}" {% if lang.code == CURRENT_LANG %}selected{% endif %}>{{ lang.name_local|truncatechars:2 }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+
+                <a href="{% url 'ticket_create' %}" class="btn btn-primary">{% trans "+ Tiket Baru" %}</a>
 
                 <details class="dropdown relative">
                     <summary class="flex items-center gap-2 cursor-pointer select-none p-1 rounded-lg hover:bg-slate-100">
@@ -211,17 +224,17 @@
                             <p class="font-medium text-slate-900">{{ user.username }}</p>
                             <p class="text-xs text-slate-400">{{ user.email|default:'tidak ada email' }}</p>
                         </div>
-                        <a href="{% url 'profile' %}" class="block px-4 py-2 hover:bg-slate-50">Profil Saya</a>
-                        <a href="{% url 'change_password' %}" class="block px-4 py-2 hover:bg-slate-50">Ubah Password</a>
+                        <a href="{% url 'profile' %}" class="block px-4 py-2 hover:bg-slate-50">{% trans "Profil Saya" %}</a>
+                        <a href="{% url 'change_password' %}" class="block px-4 py-2 hover:bg-slate-50">{% trans "Ubah Password" %}</a>
                         <form action="{% url 'logout' %}" method="post" class="border-t border-slate-100">
                             {% csrf_token %}
-                            <button type="submit" class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Logout</button>
+                            <button type="submit" class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">{% trans "Logout" %}</button>
                         </form>
                     </div>
                 </details>
             </div>
             {% else %}
-                <a href="{% url 'login' %}" class="btn btn-primary">Masuk</a>
+                <a href="{% url 'login' %}" class="btn btn-primary">{% trans "Masuk" %}</a>
             {% endif %}
         </div>
 

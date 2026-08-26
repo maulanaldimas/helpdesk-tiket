@@ -1,13 +1,13 @@
 {% extends 'tickets/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Masuk{% endblock %}
+{% block title %}{% trans "Masuk" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-sm mx-auto mt-10 sm:mt-16">
     <div class="text-center mb-8">
         <img src="{{ site_logo_url }}" alt="{{ site_name }}" class="h-24 w-auto mx-auto mb-5">
-        <h1 class="page-title">Masuk ke Helpdesk</h1>
+        <h1 class="page-title">{% trans "Masuk ke Helpdesk" %}</h1>
         <p class="page-sub">{{ site_tagline }}</p>
     </div>
 
@@ -28,11 +28,11 @@
                 {% endif %}
             </div>
         {% endfor %}
-        <button type="submit" class="btn btn-primary w-full py-2.5">Masuk</button>
+        <button type="submit" class="btn btn-primary w-full py-2.5">{% trans "Masuk" %}</button>
     </form>
 
     <div class="text-center mt-3">
-        <a href="{% url 'password_reset' %}" class="text-xs text-slate-400 hover:text-indigo-600 transition">Lupa password?</a>
+        <a href="{% url 'password_reset' %}" class="text-xs text-slate-400 hover:text-indigo-600 transition">{% trans "Lupa password?" %}</a>
     </div>
 
     <p class="text-center text-xs text-slate-400 mt-4">

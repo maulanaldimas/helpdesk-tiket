@@ -860,6 +860,26 @@ def dashboard(request):
 
     recent_tickets = tickets.select_related('company', 'category').order_by('-created_at')[:5]
 
+    # Activity heatmap — aktivitas per hari dalam 12 minggu terakhir (84 hari)
+    heatmap_labels = []
+    heatmap_data = []
+    heatmap_tickets_data = []
+    heatmap_comments_data = []
+    for i in range(83, -1, -1):
+        day = today - timedelta(days=i)
+        heatmap_labels.append(day.strftime('%d/%m'))
+        day_count = Activity.objects.filter(created_at__date=day).count()
+        heatmap_data.append(day_count)
+        heatmap_tickets_data.append(Ticket.objects.filter(created_at__date=day).count())
+        heatmap_comments_data.append(Comment.objects.filter(created_at__date=day).count())
+
+    # SLA compliance chart data (donut)
+    sla_on_time = on_time_count
+    sla_overdue_count = tickets.exclude(status__in=['resolved', 'closed']).filter(
+        sla_deadline__lt=timezone.now()
+    ).count()
+    sla_still_active = total - total_closed - sla_overdue_count
+
     return render(request, 'tickets/dashboard.html', {
         'total': total,
         'status_counts': status_counts,
@@ -878,6 +898,13 @@ def dashboard(request):
         'trend_counts': trend_counts,
         'staff_workload': staff_workload,
         'recent_tickets': recent_tickets,
+        'heatmap_labels': heatmap_labels,
+        'heatmap_data': heatmap_data,
+        'heatmap_tickets_data': heatmap_tickets_data,
+        'heatmap_comments_data': heatmap_comments_data,
+        'sla_on_time': sla_on_time,
+        'sla_overdue_count': sla_overdue_count,
+        'sla_still_active': max(0, sla_still_active),
         'breadcrumbs': [{'label': 'Dashboard'}],
     })
 

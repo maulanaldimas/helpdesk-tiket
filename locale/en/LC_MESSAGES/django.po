@@ -1,0 +1,178 @@
+# English translations for IT Helpdesk
+msgid ""
+msgstr ""
+"Project-Id-Version: IT Helpdesk\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-26 10:00+0700\n"
+"PO-Revision-Date: 2026-08-26 10:00+0700\n"
+"Last-Translator: \n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# Dashboard
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Ringkasan aktivitas helpdesk Anda."
+msgstr "Overview of your helpdesk activity."
+
+msgid "Total Tiket"
+msgstr "Total Tickets"
+
+msgid "Aktif"
+msgstr "Active"
+
+msgid "Overdue"
+msgstr "Overdue"
+
+msgid "Kepatuhan SLA"
+msgstr "SLA Compliance"
+
+msgid "Respon Pertama"
+msgstr "First Response"
+
+msgid "Tren Tiket Masuk"
+msgstr "Ticket Inflow Trend"
+
+msgid "14 hari terakhir"
+msgstr "Last 14 days"
+
+msgid "Status Tiket"
+msgstr "Ticket Status"
+
+msgid "Prioritas"
+msgstr "Priority"
+
+msgid "Kategori Terbanyak"
+msgstr "Top Categories"
+
+msgid "Ringkasan"
+msgstr "Summary"
+
+msgid "Resolved"
+msgstr "Resolved"
+
+msgid "Closed"
+msgstr "Closed"
+
+msgid "Beban Tiket per Staff"
+msgstr "Ticket Workload per Staff"
+
+msgid "Tiket Terbaru"
+msgstr "Recent Tickets"
+
+msgid "Lihat semua →"
+msgstr "View all →"
+
+msgid "+ Buat Tiket"
+msgstr "+ Create Ticket"
+
+# Nav
+msgid "Tiket"
+msgstr "Tickets"
+
+msgid "Panduan"
+msgstr "Guides"
+
+msgid "Laporan"
+msgstr "Reports"
+
+msgid "Kelola"
+msgstr "Manage"
+
+msgid "Masuk"
+msgstr "Sign In"
+
+msgid "Logout"
+msgstr "Sign Out"
+
+msgid "Profil Saya"
+msgstr "My Profile"
+
+msgid "Ubah Password"
+msgstr "Change Password"
+
+msgid "+ Tiket Baru"
+msgstr "+ New Ticket"
+
+msgid "Notifikasi"
+msgstr "Notifications"
+
+# Ticket List
+msgid "Daftar Tiket"
+msgstr "Ticket List"
+
+# Reports
+msgid "Laporan Tiket"
+msgstr "Ticket Report"
+
+msgid "Filter"
+msgstr "Filter"
+
+msgid "Semua"
+msgstr "All"
+
+# Activity Log
+msgid "Log Aktivitas"
+msgstr "Activity Log"
+
+msgid "Riwayat semua aktivitas pada tiket."
+msgstr "History of all ticket activities."
+
+msgid "Semua Aksi"
+msgstr "All Actions"
+
+# SLA
+msgid "SLA Escalations"
+msgstr "SLA Escalations"
+
+msgid "Tiket yang terlambat melewati SLA dan membutuhkan perhatian segera."
+msgstr "Tickets that are overdue and require immediate attention."
+
+# Heatmap
+msgid "Activity Heatmap"
+msgstr "Activity Heatmap"
+
+msgid "12 minggu terakhir — tiket baru & komentar per hari"
+msgstr "Last 12 weeks — new tickets & comments per day"
+
+# Login
+msgid "Masukkan nama pengguna dan sandi"
+msgstr "Enter your username and password"
+
+msgid "Lupa password?"
+msgstr "Forgot password?"
+
+# Tickets
+msgid "Tiket Baru"
+msgstr "New Ticket"
+
+msgid "Judul"
+msgstr "Title"
+
+msgid "Deskripsi"
+msgstr "Description"
+
+msgid "Company"
+msgstr "Company"
+
+msgid "Kategori"
+msgstr "Category"
+
+msgid "Prioritas"
+msgstr "Priority"
+
+msgid "Simpan"
+msgstr "Save"
+
+msgid "Batal"
+msgstr "Cancel"
+
+msgid "Hapus"
+msgstr "Delete"
+
+msgid "Kembali"
+msgstr "Back"

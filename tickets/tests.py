@@ -1315,3 +1315,81 @@ class SLAEscalationTests(TestCase):
         self.client.login(username='staff1', password='pass12345')
         resp = self.client.get('/sla/escalations/')
         self.assertEqual(resp.status_code, 302)
+
+
+class DashboardHeatmapSLATests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.category = Category.objects.create(name='Bug')
+        self.admin = make_user('admin1', 'admin', self.company)
+        self.client.login(username='admin1', password='pass12345')
+
+    def test_dashboard_has_heatmap_and_sla_context(self):
+        with self.settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}}):
+            resp = self.client.get('/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('heatmap_labels', resp.context)
+        self.assertIn('heatmap_data', resp.context)
+        self.assertIn('heatmap_tickets_data', resp.context)
+        self.assertIn('heatmap_comments_data', resp.context)
+        self.assertIn('sla_on_time', resp.context)
+        self.assertIn('sla_overdue_count', resp.context)
+        self.assertIn('sla_still_active', resp.context)
+
+    def test_heatmap_data_length_is_84(self):
+        """84 days = 12 weeks"""
+        with self.settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}}):
+            resp = self.client.get('/')
+        self.assertEqual(len(resp.context['heatmap_labels']), 84)
+        self.assertEqual(len(resp.context['heatmap_data']), 84)
+
+    def test_sla_chart_data_with_closed_ticket(self):
+        make_ticket(self.admin, self.company, self.category, status='closed')
+        with self.settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}}):
+            resp = self.client.get('/')
+        self.assertEqual(resp.context['sla_on_time'], 1)
+
+    def test_heatmap_tickets_populated_with_data(self):
+        make_ticket(self.admin, self.company, self.category, status='open')
+        with self.settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}}):
+            resp = self.client.get('/')
+        self.assertGreater(sum(resp.context['heatmap_tickets_data']), 0)
+
+
+class LanguageToggleTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.admin = make_user('admin1', 'admin', self.company)
+
+    def test_set_language_to_english(self):
+        self.client.login(username='admin1', password='pass12345')
+        resp = self.client.post('/i18n/set_language/', {'language': 'en', 'next': '/'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(self.client.cookies.get('django_language').value, 'en')
+
+    def test_set_language_to_indonesian(self):
+        self.client.login(username='admin1', password='pass12345')
+        resp = self.client.post('/i18n/set_language/', {'language': 'id', 'next': '/'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(self.client.cookies.get('django_language').value, 'id')
+
+
+class HealthcheckTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='PT Uji')
+        self.admin = make_user('admin1', 'admin', self.company)
+
+    def test_healthcheck_returns_ok(self):
+        resp = self.client.get('/health/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['status'], 'ok')
+
+    def test_healthcheck_db_ok(self):
+        resp = self.client.get('/health/')
+        data = resp.json()
+        self.assertEqual(data['database'], 'ok')
+
+    def test_healthcheck_unauthenticated(self):
+        resp = self.client.get('/health/')
+        self.assertEqual(resp.status_code, 200)
