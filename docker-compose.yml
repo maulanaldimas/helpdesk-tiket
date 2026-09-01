@@ -4,11 +4,12 @@ x-app-env: &app-env
   ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
   CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
   SITE_URL: ${SITE_URL:-http://localhost:8000}
+  DATABASE_URL: postgresql://helpdesk:${DB_PASSWORD:?Set DB_PASSWORD in .env}@helpdesk-db:5432/helpdesk
   DB_ENGINE: django.db.backends.postgresql
   DB_NAME: helpdesk
   DB_USER: helpdesk
   DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
-  DB_HOST: db
+  DB_HOST: helpdesk-db
   DB_PORT: "5432"
   EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
   EMAIL_HOST: ${EMAIL_HOST:-}
@@ -17,12 +18,15 @@ x-app-env: &app-env
   EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
   DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-helpdesk@localhost}
   TIME_ZONE: ${TIME_ZONE:-Asia/Jakarta}
-  CELERY_BROKER_URL: redis://redis:6379/0
-  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://helpdesk-redis:6379/0
+  CELERY_RESULT_BACKEND: redis://helpdesk-redis:6379/0
   IDLE_TIMEOUT: ${IDLE_TIMEOUT:-1800}
+  FORCE_SCRIPT_NAME: /helpdesk
+  STATIC_URL: /helpdesk/static/
+  MEDIA_URL: /helpdesk/media/
 
 services:
-  redis:
+  helpdesk-redis:
     image: redis:7-alpine
     restart: unless-stopped
     volumes:
@@ -32,8 +36,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - portfolio-net
 
-  db:
+  helpdesk-db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -47,8 +53,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - portfolio-net
 
-  web:
+  helpdesk:
     image: ghcr.io/maulanaldimas/helpdesk-tiket:latest
     build: .
     restart: unless-stopped
@@ -60,33 +68,43 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      db:
+      helpdesk-db:
         condition: service_healthy
-      redis:
+      helpdesk-redis:
         condition: service_healthy
+    networks:
+      - portfolio-net
 
-  celery:
+  helpdesk-celery:
     build: .
     restart: unless-stopped
     command: celery -A helpdesk worker --loglevel=info --concurrency=2
     environment: *app-env
     depends_on:
-      db:
+      helpdesk-db:
         condition: service_healthy
-      redis:
+      helpdesk-redis:
         condition: service_healthy
+    networks:
+      - portfolio-net
 
-  worker:
+  helpdesk-worker:
     build: .
     restart: unless-stopped
     command: sh -c "while true; do python manage.py sla_check; sleep 3600; done"
     environment: *app-env
     depends_on:
-      db:
+      helpdesk-db:
         condition: service_healthy
+    networks:
+      - portfolio-net
 
 volumes:
   db_data:
   media_data:
   static_data:
   redis_data:
+
+networks:
+  portfolio-net:
+    external: true

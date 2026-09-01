@@ -133,9 +133,11 @@ LOCALE_PATHS = [
 ]
 
 
+FORCE_SCRIPT_NAME = os.getenv('FORCE_SCRIPT_NAME', '')
+
 # Static files (CSS, JavaScript, Images)
 
-STATIC_URL = '/static/'
+STATIC_URL = os.getenv('STATIC_URL', '/static/')
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STORAGES = {
@@ -153,7 +155,7 @@ STORAGES = {
 
 # Media (upload pengguna: lampiran tiket)
 
-MEDIA_URL = '/media/'
+MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
 MEDIA_ROOT = BASE_DIR / 'media'
 
 
